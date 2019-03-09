@@ -54,9 +54,6 @@ func ConvertRequest(req events.APIGatewayProxyRequest) (*http.Request, error) {
 
 	conv.Header = header
 	conv.RemoteAddr = req.RequestContext.Identity.SourceIP
-	// conv.ContentLength = len(req.Body)
-	// conv.Host = host
-
 	return conv, nil
 }
 

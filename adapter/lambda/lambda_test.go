@@ -22,9 +22,20 @@ func TestAdapter(t *testing.T) {
 		MultiValueQueryStringParameters: map[string][]string{"X": []string{"Y"}},
 		PathParameters:                  map[string]string{},
 		StageVariables:                  map[string]string{},
-		RequestContext:                  events.APIGatewayProxyRequestContext{},
 		Body:                            `{"yo":"my dudes"}`,
 		IsBase64Encoded:                 false,
+		RequestContext: events.APIGatewayProxyRequestContext{
+			AccountID:    "001",
+			ResourceID:   "002",
+			Stage:        "003",
+			RequestID:    "004",
+			ResourcePath: "/a/b/c",
+			HTTPMethod:   "GET",
+			APIID:        "005",
+			Identity: events.APIGatewayRequestIdentity{
+				SourceIP: "1.1.1.1",
+			},
+		},
 	}
 
 	spew.Dump(req)
@@ -36,6 +47,7 @@ func TestAdapter(t *testing.T) {
 		assert.Equal(t, "www.github.com", conv.Host)
 		assert.Equal(t, defaultScheme+"://www.github.com"+req.Path+"?X=Y", conv.URL.String())
 		assert.Equal(t, "X=Y", conv.URL.RawQuery)
+		assert.Equal(t, "1.1.1.1", conv.RemoteAddr)
 		assert.Equal(t, int64(len(req.Body)), conv.ContentLength)
 		body, err := ioutil.ReadAll(conv.Body)
 		if assert.Nil(t, err, fmt.Sprint(err)) {
