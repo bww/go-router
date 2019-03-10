@@ -63,12 +63,14 @@ func ConvertResponse(rsp *router.Response) (events.APIGatewayProxyResponse, erro
 	if err != nil {
 		return events.APIGatewayProxyResponse{}, err
 	}
+
 	header := make(map[string]string)
 	for k, v := range rsp.Header {
 		if len(v) > 0 {
 			header[k] = v[0]
 		}
 	}
+
 	return events.APIGatewayProxyResponse{
 		StatusCode:        rsp.Status,
 		Headers:           header,
@@ -112,16 +114,19 @@ func (w *lambdaResponseWriter) ConvertResponse() (events.APIGatewayProxyResponse
 	if w.status == 0 {
 		return events.APIGatewayProxyResponse{StatusCode: http.StatusOK}, nil
 	}
+
 	header := make(map[string]string)
 	for k, v := range w.header {
 		if len(v) > 0 {
 			header[k] = v[0]
 		}
 	}
+
 	var entity string
 	if w.entity != nil {
 		entity = string(w.entity.Bytes())
 	}
+
 	return events.APIGatewayProxyResponse{
 		StatusCode:        w.status,
 		Headers:           header,
