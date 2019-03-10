@@ -33,6 +33,7 @@ func NewResponse(status int, entity io.Reader) (*Response, error) {
 	}
 	return &Response{
 		Status: status,
+		Header: make(http.Header),
 		Entity: closer,
 	}, nil
 }
@@ -50,7 +51,14 @@ func NewJSONResponse(status int, entity interface{}) (*Response, error) {
 	if err != nil {
 		return nil, err
 	}
-	return NewBytesResponse(status, data)
+
+	rsp, err := NewBytesResponse(status, data)
+	if err != nil {
+		return nil, err
+	}
+
+	rsp.Header.Set("Content-Type", "application/json")
+	return rsp, nil
 }
 
 func (r *Response) ReadEntity() ([]byte, error) {
