@@ -6,12 +6,13 @@ import (
 	"strings"
 )
 
-// Parameters
 type Vars map[string]string
+type Attributes map[string]interface{}
 
 // Request context
 type Context struct {
-	Vars Vars
+	Vars  Vars
+	Attrs Attributes
 }
 
 // Route handler
@@ -91,6 +92,7 @@ type Route struct {
 	handler Handler
 	methods []string
 	paths   []path
+	attrs   Attributes
 }
 
 // Set methods
@@ -106,6 +108,15 @@ func (r *Route) Paths(s ...string) *Route {
 		p[i] = parsePath(e)
 	}
 	r.paths = append(r.paths, p...)
+	return r
+}
+
+// Set an attribute
+func (r *Route) Attr(k string, v interface{}) *Route {
+	if r.attrs == nil {
+		r.attrs = make(Attributes)
+	}
+	r.attrs[k] = v
 	return r
 }
 
@@ -132,7 +143,8 @@ func (r *Route) Handle(req *Request, context Context) (*Response, error) {
 
 // Dead simple router
 type Router struct {
-	routes []*Route
+	routes     []*Route
+	middleware []Handler
 }
 
 // Create a router
@@ -140,9 +152,14 @@ func New() *Router {
 	return &Router{}
 }
 
+// Add middleware which is executed for every route
+func (r *Router) Use(f Handler) {
+	r.middleware = append(r.middleware, f)
+}
+
 // Add a route
 func (r *Router) Add(p string, f Handler) *Route {
-	v := &Route{f, nil, []path{parsePath(p)}}
+	v := &Route{f, nil, []path{parsePath(p)}, nil}
 	r.routes = append(r.routes, v)
 	return v
 }
@@ -169,7 +186,19 @@ func (r Router) Handle(req *Request) (*Response, error) {
 	if vars == nil {
 		vars = make(Vars)
 	}
-	return h.Handle(req, Context{vars})
+
+	cxt := Context{vars, h.attrs}
+	for _, e := range r.middleware {
+		rsp, err := e(req, cxt)
+		if err != nil {
+			return nil, err
+		}
+		if rsp != nil {
+			return rsp, nil
+		}
+	}
+
+	return h.Handle(req, cxt)
 }
 
 // Is a string in the set
