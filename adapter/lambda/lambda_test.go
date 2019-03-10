@@ -6,6 +6,8 @@ import (
 	"net/http"
 	"testing"
 
+	"github.com/bww/go-router"
+
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/stretchr/testify/assert"
 	// "github.com/davecgh/go-spew/spew"
@@ -55,13 +57,25 @@ func TestAdapter(t *testing.T) {
 		}
 	}
 
-	hrsp := NewResponseWriter()
-	hrsp.Header().Set("Host", "www.github.com")
-	hrsp.WriteHeader(http.StatusForbidden)
-	_, err = hrsp.Write([]byte(entity))
+	hrsp, err := router.NewStringResponse(http.StatusUnauthorized, entity)
+	hrsp.Header = make(http.Header)
+	hrsp.Header.Set("Host", "www.github.com")
+	rsp, err := ConvertResponse(hrsp)
+	if assert.Nil(t, err, fmt.Sprint(err)) {
+		assert.Equal(t, http.StatusUnauthorized, rsp.StatusCode)
+		assert.Equal(t, map[string]string{"Host": "www.github.com"}, rsp.Headers)
+		assert.Equal(t, map[string][]string{"Host": []string{"www.github.com"}}, rsp.MultiValueHeaders)
+		assert.Equal(t, entity, rsp.Body)
+		assert.Equal(t, false, rsp.IsBase64Encoded)
+	}
+
+	hwriter := NewResponseWriter()
+	hwriter.Header().Set("Host", "www.github.com")
+	hwriter.WriteHeader(http.StatusForbidden)
+	_, err = hwriter.Write([]byte(entity))
 	assert.Nil(t, err, fmt.Sprint(err))
 
-	rsp, err := hrsp.ConvertResponse()
+	rsp, err = hwriter.ConvertResponse()
 	if assert.Nil(t, err, fmt.Sprint(err)) {
 		assert.Equal(t, http.StatusForbidden, rsp.StatusCode)
 		assert.Equal(t, map[string]string{"Host": "www.github.com"}, rsp.Headers)

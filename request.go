@@ -54,5 +54,9 @@ func NewJSONResponse(status int, entity interface{}) (*Response, error) {
 }
 
 func (r *Response) ReadEntity() ([]byte, error) {
-	return ioutil.ReadAll(r.Entity)
+	if r.Entity == nil {
+		return []byte{}, nil
+	} else {
+		return ioutil.ReadAll(r.Entity)
+	}
 }

@@ -7,12 +7,14 @@ import (
 	"net/url"
 	"strings"
 
+	"github.com/bww/go-router"
+
 	"github.com/aws/aws-lambda-go/events"
 )
 
 const defaultScheme = "https"
 
-func ConvertRequest(req events.APIGatewayProxyRequest) (*http.Request, error) {
+func ConvertRequest(req events.APIGatewayProxyRequest) (*router.Request, error) {
 	u, err := url.Parse(defaultScheme + "://" + req.Path)
 	if err != nil {
 		return nil, err
@@ -46,14 +48,34 @@ func ConvertRequest(req events.APIGatewayProxyRequest) (*http.Request, error) {
 	}
 
 	u.Host = host
-	conv, err := http.NewRequest(req.HTTPMethod, u.String(), bytes.NewReader(entity))
+	hreq, err := router.NewRequest(req.HTTPMethod, u.String(), bytes.NewReader(entity))
 	if err != nil {
 		return nil, err
 	}
 
-	conv.Header = header
-	conv.RemoteAddr = req.RequestContext.Identity.SourceIP
-	return conv, nil
+	hreq.Header = header
+	hreq.RemoteAddr = req.RequestContext.Identity.SourceIP
+	return hreq, nil
+}
+
+func ConvertResponse(rsp *router.Response) (events.APIGatewayProxyResponse, error) {
+	entity, err := rsp.ReadEntity()
+	if err != nil {
+		return events.APIGatewayProxyResponse{}, err
+	}
+	header := make(map[string]string)
+	for k, v := range rsp.Header {
+		if len(v) > 0 {
+			header[k] = v[0]
+		}
+	}
+	return events.APIGatewayProxyResponse{
+		StatusCode:        rsp.Status,
+		Headers:           header,
+		MultiValueHeaders: rsp.Header,
+		Body:              string(entity),
+		IsBase64Encoded:   false,
+	}, nil
 }
 
 type lambdaResponseWriter struct {
