@@ -7,8 +7,8 @@ import (
 	"testing"
 
 	"github.com/aws/aws-lambda-go/events"
-	"github.com/davecgh/go-spew/spew"
 	"github.com/stretchr/testify/assert"
+	// "github.com/davecgh/go-spew/spew"
 )
 
 func TestAdapter(t *testing.T) {
