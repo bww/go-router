@@ -3,7 +3,6 @@ package lambda
 import (
 	"bytes"
 	"encoding/base64"
-	"fmt"
 	"net/http"
 	"net/url"
 	"strings"
@@ -57,6 +56,55 @@ func ConvertRequest(req events.APIGatewayProxyRequest) (*http.Request, error) {
 	return conv, nil
 }
 
-func WriteResponse(w http.ResponseWriter, rsp events.APIGatewayProxyResponse) error {
-	return fmt.Errorf("Unimplemented")
+type lambdaResponseWriter struct {
+	status int
+	header http.Header
+	entity *bytes.Buffer
+}
+
+func NewResponseWriter() *lambdaResponseWriter {
+	return &lambdaResponseWriter{}
+}
+
+func (w *lambdaResponseWriter) Header() http.Header {
+	if w.header == nil {
+		w.header = make(http.Header)
+	}
+	return w.header
+}
+
+func (w *lambdaResponseWriter) WriteHeader(s int) {
+	if w.status == 0 { // don't "write" headers more than once
+		w.status = s
+	}
+}
+
+func (w *lambdaResponseWriter) Write(b []byte) (int, error) {
+	if w.entity == nil {
+		w.entity = &bytes.Buffer{}
+	}
+	return w.entity.Write(b)
+}
+
+func (w *lambdaResponseWriter) ConvertResponse() (events.APIGatewayProxyResponse, error) {
+	if w.status == 0 {
+		return events.APIGatewayProxyResponse{StatusCode: http.StatusOK}, nil
+	}
+	header := make(map[string]string)
+	for k, v := range w.header {
+		if len(v) > 0 {
+			header[k] = v[0]
+		}
+	}
+	var entity string
+	if w.entity != nil {
+		entity = string(w.entity.Bytes())
+	}
+	return events.APIGatewayProxyResponse{
+		StatusCode:        w.status,
+		Headers:           header,
+		MultiValueHeaders: w.header,
+		Body:              entity,
+		IsBase64Encoded:   false,
+	}, nil
 }
