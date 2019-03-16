@@ -57,7 +57,46 @@ func TestAdapter(t *testing.T) {
 		}
 	}
 
-	hrsp, err := router.NewStringResponse(http.StatusUnauthorized, entity)
+	req = events.APIGatewayProxyRequest{
+		Resource:              "/a/b/c",
+		Path:                  "/a/b/c",
+		HTTPMethod:            "GET",
+		Headers:               map[string]string{"Host": "www.github.com"},
+		QueryStringParameters: map[string]string{"X": "Y"},
+		PathParameters:        map[string]string{},
+		StageVariables:        map[string]string{},
+		Body:                  entity,
+		IsBase64Encoded:       false,
+		RequestContext: events.APIGatewayProxyRequestContext{
+			AccountID:    "001",
+			ResourceID:   "002",
+			Stage:        "003",
+			RequestID:    "004",
+			ResourcePath: "/a/b/c",
+			HTTPMethod:   "GET",
+			APIID:        "005",
+			Identity: events.APIGatewayRequestIdentity{
+				SourceIP: "1.1.1.1",
+			},
+		},
+	}
+
+	hreq, err = ConvertRequest(req)
+	if assert.Nil(t, err, fmt.Sprint(err)) {
+		assert.Equal(t, req.Path, hreq.URL.Path)
+		assert.Equal(t, "www.github.com", hreq.URL.Host)
+		assert.Equal(t, "www.github.com", hreq.Host)
+		assert.Equal(t, defaultScheme+"://www.github.com"+req.Path+"?X=Y", hreq.URL.String())
+		assert.Equal(t, "X=Y", hreq.URL.RawQuery)
+		assert.Equal(t, "1.1.1.1", hreq.RemoteAddr)
+		assert.Equal(t, int64(len(req.Body)), hreq.ContentLength)
+		body, err := ioutil.ReadAll(hreq.Body)
+		if assert.Nil(t, err, fmt.Sprint(err)) {
+			assert.Equal(t, req.Body, string(body))
+		}
+	}
+
+	hrsp, err := router.NewResponse(http.StatusUnauthorized).SetStringEntity("text/plain", entity)
 	hrsp.Header = make(http.Header)
 	hrsp.Header.Set("Host", "www.github.com")
 	rsp, err := ConvertResponse(hrsp)

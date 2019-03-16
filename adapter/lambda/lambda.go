@@ -21,14 +21,23 @@ func ConvertRequest(req events.APIGatewayProxyRequest) (*router.Request, error) 
 	}
 
 	query := make(url.Values)
-	for k, v := range req.MultiValueQueryStringParameters {
+	for k, v := range req.QueryStringParameters { // for some reason both single- and multi-value headers are not consistently present...
+		query[k] = []string{v}
+	}
+	for k, v := range req.MultiValueQueryStringParameters { // so we process them both and prefer the multi-value variant...
 		query[k] = v
 	}
 	u.RawQuery = query.Encode()
 
 	var host string
 	header := make(http.Header)
-	for k, v := range req.MultiValueHeaders {
+	for k, v := range req.Headers { // for some reason both single- and multi-value headers are not consistently present...
+		header[k] = []string{v}
+		if strings.EqualFold("Host", k) {
+			host = v
+		}
+	}
+	for k, v := range req.MultiValueHeaders { // so we process them both and prefer the multi-value variant...
 		header[k] = v
 		if strings.EqualFold("Host", k) {
 			if len(v) > 0 {
