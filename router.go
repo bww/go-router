@@ -179,9 +179,9 @@ func (r Router) Find(req *Request) (*Route, Vars, error) {
 func (r Router) Handle(req *Request) (*Response, error) {
 	h, vars, err := r.Find(req)
 	if err != nil {
-		return NewStringResponse(http.StatusInternalServerError, fmt.Sprintf("Could not find route: %v", err))
+		return NewResponse(http.StatusInternalServerError).SetStringEntity("text/plain", fmt.Sprintf("Could not find route: %v", err))
 	} else if h == nil {
-		return NewStringResponse(http.StatusNotFound, "Not found")
+		return NewResponse(http.StatusNotFound).SetStringEntity("text/plain", "Not found")
 	}
 	if vars == nil {
 		vars = make(Vars)

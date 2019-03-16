@@ -56,19 +56,19 @@ func TestRoutes(t *testing.T) {
 	var err error
 
 	funcA := func(*Request, Context) (*Response, error) {
-		return NewStringResponse(http.StatusOK, "A")
+		return NewResponse(http.StatusOK).SetStringEntity("text/plain", "A")
 	}
 	funcB := func(*Request, Context) (*Response, error) {
-		return NewStringResponse(http.StatusOK, "B")
+		return NewResponse(http.StatusOK).SetStringEntity("text/plain", "B")
 	}
 	funcC := func(*Request, Context) (*Response, error) {
-		return NewStringResponse(http.StatusOK, "C")
+		return NewResponse(http.StatusOK).SetStringEntity("text/plain", "C")
 	}
 	funcD := func(*Request, Context) (*Response, error) {
-		return NewStringResponse(http.StatusOK, "D")
+		return NewResponse(http.StatusOK).SetStringEntity("text/plain", "D")
 	}
 	funcE := func(*Request, Context) (*Response, error) {
-		return NewStringResponse(http.StatusOK, "E")
+		return NewResponse(http.StatusOK).SetStringEntity("text/plain", "E")
 	}
 
 	r := &Router{}
