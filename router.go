@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+
+	paths "path"
 )
 
 type Vars map[string]string
@@ -136,36 +138,48 @@ func (r Route) Matches(m, p string) (bool, map[string]string) {
 	return false, nil
 }
 
-// Exec
+// Handle the request
 func (r *Route) Handle(req *Request, context Context) (*Response, error) {
 	return r.handler(req, context)
 }
 
 // Dead simple router
-type Router struct {
+type Router interface {
+	Use(f Handler)
+	Add(p string, f Handler) *Route
+	Find(r *Request) (*Route, Vars, error)
+	Handle(r *Request) (*Response, error)
+	Subrouter(p string) Router
+}
+
+type router struct {
 	routes     []*Route
 	middleware []Handler
 }
 
-// Create a router
-func New() *Router {
-	return &Router{}
+func New() Router {
+	return &router{}
+}
+
+// Derive a subrouter from this router with the specified path prefix
+func (r *router) Subrouter(p string) Router {
+	return &subrouter{r, p}
 }
 
 // Add middleware which is executed for every route
-func (r *Router) Use(f Handler) {
+func (r *router) Use(f Handler) {
 	r.middleware = append(r.middleware, f)
 }
 
 // Add a route
-func (r *Router) Add(p string, f Handler) *Route {
+func (r *router) Add(p string, f Handler) *Route {
 	v := &Route{f, nil, []path{parsePath(p)}, nil}
 	r.routes = append(r.routes, v)
 	return v
 }
 
 // Find a route for the request, if we have one
-func (r Router) Find(req *Request) (*Route, Vars, error) {
+func (r router) Find(req *Request) (*Route, Vars, error) {
 	for _, e := range r.routes {
 		m, vars := e.Matches(req.Method, req.URL.Path)
 		if m {
@@ -175,8 +189,8 @@ func (r Router) Find(req *Request) (*Route, Vars, error) {
 	return nil, nil, nil
 }
 
-// Exec
-func (r Router) Handle(req *Request) (*Response, error) {
+// Handle the request
+func (r router) Handle(req *Request) (*Response, error) {
 	h, vars, err := r.Find(req)
 	if err != nil {
 		return NewResponse(http.StatusInternalServerError).SetStringEntity("text/plain", fmt.Sprintf("Could not find route: %v", err))
@@ -199,6 +213,36 @@ func (r Router) Handle(req *Request) (*Response, error) {
 	}
 
 	return h.Handle(req, cxt)
+}
+
+type subrouter struct {
+	parent Router
+	prefix string
+}
+
+// Derive a subrouter from this router with the specified path prefix
+func (r *subrouter) Subrouter(p string) Router {
+	return &subrouter{r, p}
+}
+
+// Add middleware which is executed for every route
+func (r *subrouter) Use(f Handler) {
+	r.parent.Use(f)
+}
+
+// Add a route
+func (r *subrouter) Add(p string, f Handler) *Route {
+	return r.parent.Add(paths.Join(r.prefix, p), f)
+}
+
+// Find a route for the request, if we have one
+func (r subrouter) Find(req *Request) (*Route, Vars, error) {
+	return r.parent.Find(req)
+}
+
+// Handle the request
+func (r subrouter) Handle(req *Request) (*Response, error) {
+	return r.parent.Handle(req)
 }
 
 // Is a string in the set
