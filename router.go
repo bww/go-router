@@ -8,6 +8,11 @@ import (
 	paths "path"
 )
 
+const (
+	wildOne   = component("*")
+	wildMulti = component("**")
+)
+
 type Vars map[string]string
 type Attributes map[string]interface{}
 
@@ -25,7 +30,9 @@ type component string
 
 // Does a component match
 func (c component) Matches(s string) (bool, string) {
-	if string(c) == s {
+	if c == wildOne || c == wildMulti {
+		return true, "" // matches everything, captures nothing
+	} else if string(c) == s {
 		return true, ""
 	} else if l := len(c); l < 2 {
 		return false, ""
@@ -70,7 +77,8 @@ func parsePath(s string) path {
 func (p path) Matches(s string) (bool, Vars) {
 	var vars map[string]string
 	var c string
-	for _, e := range p {
+	var e component
+	for _, e = range p {
 		c, s = splitPath(s)
 		m, n := e.Matches(c)
 		if !m {
@@ -83,7 +91,7 @@ func (p path) Matches(s string) (bool, Vars) {
 			vars[n] = c
 		}
 	}
-	if s != "" {
+	if s != "" && e != wildMulti {
 		return false, nil
 	}
 	return true, vars

@@ -47,6 +47,31 @@ func TestPaths(t *testing.T) {
 	m, _ = parsePath("/a/{var1}/{var2}").Matches("/a/b/c/d")
 	assert.Equal(t, false, m)
 
+	m, _ = parsePath("/*").Matches("/a")
+	assert.Equal(t, true, m)
+	m, _ = parsePath("/*").Matches("/")
+	assert.Equal(t, true, m)
+	m, _ = parsePath("/a/*/c").Matches("/a/b/c")
+	assert.Equal(t, true, m)
+	m, _ = parsePath("/a/*").Matches("/a/b")
+	assert.Equal(t, true, m)
+	m, _ = parsePath("/a/*").Matches("/a/b/c")
+	assert.Equal(t, false, m)
+	m, _ = parsePath("/a/*").Matches("/a/b/c/d")
+	assert.Equal(t, false, m)
+	m, _ = parsePath("/a/**").Matches("/a/b/c/d")
+	assert.Equal(t, true, m)
+	m, _ = parsePath("/a/**").Matches("/a")
+	assert.Equal(t, true, m)
+	m, _ = parsePath("/a/**").Matches("/")
+	assert.Equal(t, false, m)
+	m, _ = parsePath("/a/**/c/d").Matches("/a/b/c/d")
+	assert.Equal(t, true, m)
+	m, _ = parsePath("/**").Matches("/")
+	assert.Equal(t, true, m)
+	m, _ = parsePath("/**").Matches("/a/b/c/d")
+	assert.Equal(t, true, m)
+
 }
 
 func TestRoutes(t *testing.T) {
