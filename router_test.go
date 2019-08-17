@@ -3,6 +3,7 @@ package router
 import (
 	"fmt"
 	"net/http"
+	"net/url"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -111,6 +112,10 @@ func TestRoutes(t *testing.T) {
 	s2 := s1.Subrouter("/y")
 	s2.Add("/a", funcD).Methods("GET")
 	s2.Add("/a", funcE).Methods("PUT")
+
+	s3 := r.Subrouter("/z")
+	s3.Add("/a", funcA).Methods("GET").Params(url.Values{"foo": {"bar"}})
+	s3.Add("/b", funcB).Methods("GET").Params(url.Values{"foo": {"bar"}, "zap": {"pap"}})
 
 	req, err = NewRequest("GET", "/a", nil)
 	if assert.Nil(t, err, fmt.Sprint(err)) {
@@ -305,6 +310,54 @@ func TestRoutes(t *testing.T) {
 				entity, err := r.ReadEntity()
 				if assert.Nil(t, err, fmt.Sprint(err)) {
 					assert.Equal(t, []byte("E"), entity)
+					assert.Equal(t, map[string]string(nil), v)
+				}
+			}
+		}
+	}
+
+	// match with parameters
+
+	req, err = NewRequest("GET", "/z/a?foo=nope", nil)
+	if assert.Nil(t, err, fmt.Sprint(err)) {
+		x, v, err = r.Find(req)
+		if assert.Nil(t, err, fmt.Sprint(err)) {
+			assert.Nil(t, x)
+		}
+	}
+
+	req, err = NewRequest("GET", "/z/a?foo=bar", nil)
+	if assert.Nil(t, err, fmt.Sprint(err)) {
+		x, v, err = r.Find(req)
+		if assert.Nil(t, err, fmt.Sprintf("%v", err)) {
+			if assert.NotNil(t, x) {
+				r, _ := x.handler(nil, Context{})
+				entity, err := r.ReadEntity()
+				if assert.Nil(t, err, fmt.Sprint(err)) {
+					assert.Equal(t, []byte("A"), entity)
+					assert.Equal(t, map[string]string(nil), v)
+				}
+			}
+		}
+	}
+
+	req, err = NewRequest("GET", "/z/b?foo=bar", nil)
+	if assert.Nil(t, err, fmt.Sprint(err)) {
+		x, v, err = r.Find(req)
+		if assert.Nil(t, err, fmt.Sprint(err)) {
+			assert.Nil(t, x)
+		}
+	}
+
+	req, err = NewRequest("GET", "/z/b?foo=bar&zap=pap", nil)
+	if assert.Nil(t, err, fmt.Sprint(err)) {
+		x, v, err = r.Find(req)
+		if assert.Nil(t, err, fmt.Sprintf("%v", err)) {
+			if assert.NotNil(t, x) {
+				r, _ := x.handler(nil, Context{})
+				entity, err := r.ReadEntity()
+				if assert.Nil(t, err, fmt.Sprint(err)) {
+					assert.Equal(t, []byte("B"), entity)
 					assert.Equal(t, map[string]string(nil), v)
 				}
 			}

@@ -3,6 +3,8 @@ package router
 import (
 	"fmt"
 	"net/http"
+	"net/url"
+	"reflect"
 	"strings"
 
 	paths "path"
@@ -102,6 +104,7 @@ type Route struct {
 	handler Handler
 	methods []string
 	paths   []path
+	params  url.Values
 	attrs   Attributes
 }
 
@@ -121,6 +124,21 @@ func (r *Route) Paths(s ...string) *Route {
 	return r
 }
 
+// Match a single parameter
+func (r *Route) Param(k, v string) *Route {
+	if r.params == nil {
+		r.params = make(url.Values)
+	}
+	r.params.Set(k, v)
+	return r
+}
+
+// Match a set of parameters (or clear previously set parameters, if nil is provided)
+func (r *Route) Params(p url.Values) *Route {
+	r.params = p
+	return r
+}
+
 // Set an attribute
 func (r *Route) Attr(k string, v interface{}) *Route {
 	if r.attrs == nil {
@@ -131,19 +149,42 @@ func (r *Route) Attr(k string, v interface{}) *Route {
 }
 
 // Matches or not
-func (r Route) Matches(m, p string) (bool, map[string]string) {
+func (r Route) Matches(m, p, q string) (bool, map[string]string) {
 	if len(r.methods) > 0 {
 		if !contains(r.methods, m) {
 			return false, nil
 		}
 	}
+
+	var match bool
+	var vars map[string]string
 	for _, e := range r.paths {
-		m, vars := e.Matches(p)
-		if m {
-			return true, vars
+		match, vars = e.Matches(p)
+		if match {
+			break
 		}
 	}
-	return false, nil
+	if !match {
+		return false, nil
+	}
+
+	if len(r.params) > 0 {
+		b, err := url.ParseQuery(q)
+		if err != nil {
+			return false, nil
+		}
+		for k, v := range r.params {
+			c, ok := b[k]
+			if !ok {
+				return false, nil
+			}
+			if !reflect.DeepEqual(v, c) {
+				return false, nil
+			}
+		}
+	}
+
+	return match, vars
 }
 
 // Handle the request
@@ -181,7 +222,7 @@ func (r *router) Use(f Handler) {
 
 // Add a route
 func (r *router) Add(p string, f Handler) *Route {
-	v := &Route{f, nil, []path{parsePath(p)}, nil}
+	v := &Route{f, nil, []path{parsePath(p)}, nil, nil}
 	r.routes = append(r.routes, v)
 	return v
 }
@@ -189,7 +230,7 @@ func (r *router) Add(p string, f Handler) *Route {
 // Find a route for the request, if we have one
 func (r router) Find(req *Request) (*Route, Vars, error) {
 	for _, e := range r.routes {
-		m, vars := e.Matches(req.Method, req.URL.Path)
+		m, vars := e.Matches(req.Method, req.URL.Path, req.URL.RawQuery)
 		if m {
 			return e, vars, nil
 		}
