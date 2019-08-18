@@ -24,6 +24,11 @@ type Context struct {
 	Attrs Attributes
 }
 
+// Matching state
+type matchState struct {
+	Query url.Values
+}
+
 // Route handler
 type Handler func(*Request, Context) (*Response, error)
 
@@ -133,9 +138,14 @@ func (r *Route) Param(k, v string) *Route {
 	return r
 }
 
-// Match a set of parameters (or clear previously set parameters, if nil is provided)
+// Match a set of parameters
 func (r *Route) Params(p url.Values) *Route {
-	r.params = p
+	if r.params == nil {
+		r.params = make(url.Values)
+	}
+	for k, v := range p {
+		r.params[k] = v
+	}
 	return r
 }
 
@@ -149,9 +159,9 @@ func (r *Route) Attr(k string, v interface{}) *Route {
 }
 
 // Matches or not
-func (r Route) Matches(m, p, q string) (bool, map[string]string) {
+func (r Route) Matches(req *Request, state *matchState) (bool, map[string]string) {
 	if len(r.methods) > 0 {
-		if !contains(r.methods, m) {
+		if !contains(r.methods, req.Method) {
 			return false, nil
 		}
 	}
@@ -159,7 +169,7 @@ func (r Route) Matches(m, p, q string) (bool, map[string]string) {
 	var match bool
 	var vars map[string]string
 	for _, e := range r.paths {
-		match, vars = e.Matches(p)
+		match, vars = e.Matches(req.URL.Path)
 		if match {
 			break
 		}
@@ -169,12 +179,11 @@ func (r Route) Matches(m, p, q string) (bool, map[string]string) {
 	}
 
 	if len(r.params) > 0 {
-		b, err := url.ParseQuery(q)
-		if err != nil {
-			return false, nil
+		if state.Query == nil {
+			state.Query = req.URL.Query()
 		}
 		for k, v := range r.params {
-			c, ok := b[k]
+			c, ok := state.Query[k]
 			if !ok {
 				return false, nil
 			}
@@ -229,8 +238,9 @@ func (r *router) Add(p string, f Handler) *Route {
 
 // Find a route for the request, if we have one
 func (r router) Find(req *Request) (*Route, Vars, error) {
+	state := &matchState{}
 	for _, e := range r.routes {
-		m, vars := e.Matches(req.Method, req.URL.Path, req.URL.RawQuery)
+		m, vars := e.Matches(req, state)
 		if m {
 			return e, vars, nil
 		}
