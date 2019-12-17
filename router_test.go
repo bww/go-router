@@ -72,6 +72,8 @@ func TestPaths(t *testing.T) {
 	assert.Equal(t, true, m)
 	m, _ = parsePath("/**").Matches("/a/b/c/d")
 	assert.Equal(t, true, m)
+	m, _ = parsePath("/a/**").Matches("/a/b/c/d")
+	assert.Equal(t, true, m)
 
 }
 
@@ -112,6 +114,8 @@ func TestRoutes(t *testing.T) {
 	s2 := s1.Subrouter("/y")
 	s2.Add("/a", funcD).Methods("GET")
 	s2.Add("/a", funcE).Methods("PUT")
+	s2.Add("/a/*/c", funcA).Methods("GET")
+	s2.Add("/a/b/**", funcB).Methods("GET")
 
 	s3 := r.Subrouter("/z")
 	s3.Add("/a", funcA).Methods("GET").Param("foo", "bar")
@@ -249,6 +253,36 @@ func TestRoutes(t *testing.T) {
 				entity, err := r.ReadEntity()
 				if assert.Nil(t, err, fmt.Sprint(err)) {
 					assert.Equal(t, []byte("E"), entity)
+					assert.Equal(t, map[string]string(nil), v)
+				}
+			}
+		}
+	}
+
+	req, err = NewRequest("GET", "/x/y/a/foo/c", nil)
+	if assert.Nil(t, err, fmt.Sprint(err)) {
+		x, v, err = r.Find(req)
+		if assert.Nil(t, err, fmt.Sprintf("%v", err)) {
+			if assert.NotNil(t, x) {
+				r, _ := x.handler(nil, Context{})
+				entity, err := r.ReadEntity()
+				if assert.Nil(t, err, fmt.Sprint(err)) {
+					assert.Equal(t, []byte("A"), entity)
+					assert.Equal(t, map[string]string(nil), v)
+				}
+			}
+		}
+	}
+
+	req, err = NewRequest("GET", "/x/y/a/b/c/d", nil)
+	if assert.Nil(t, err, fmt.Sprint(err)) {
+		x, v, err = r.Find(req)
+		if assert.Nil(t, err, fmt.Sprintf("%v", err)) {
+			if assert.NotNil(t, x) {
+				r, _ := x.handler(nil, Context{})
+				entity, err := r.ReadEntity()
+				if assert.Nil(t, err, fmt.Sprint(err)) {
+					assert.Equal(t, []byte("B"), entity)
 					assert.Equal(t, map[string]string(nil), v)
 				}
 			}
