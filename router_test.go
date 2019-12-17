@@ -77,9 +77,24 @@ func TestPaths(t *testing.T) {
 
 }
 
+func checkRoute(t *testing.T, r Router, req *Request, capture Vars, expect []byte, xerr error) {
+	x, v, err := r.Find(req)
+	if xerr != nil {
+		assert.Equal(t, xerr, err)
+		return
+	} else if assert.Nil(t, err, fmt.Sprint(err)) {
+		if assert.NotNil(t, x) {
+			r, _ := x.handler(nil, Context{})
+			entity, err := r.ReadEntity()
+			if assert.Nil(t, err, fmt.Sprint(err)) {
+				assert.Equal(t, expect, entity)
+				assert.Equal(t, capture, v)
+			}
+		}
+	}
+}
+
 func TestRoutes(t *testing.T) {
-	var x *Route
-	var v map[string]string
 	var req *Request
 	var err error
 
@@ -124,294 +139,101 @@ func TestRoutes(t *testing.T) {
 
 	req, err = NewRequest("GET", "/a", nil)
 	if assert.Nil(t, err, fmt.Sprint(err)) {
-		x, v, err = r.Find(req)
-		if assert.Nil(t, err, fmt.Sprintf("%v", err)) {
-			if assert.NotNil(t, x) {
-				r, _ := x.handler(nil, Context{})
-				entity, err := r.ReadEntity()
-				if assert.Nil(t, err, fmt.Sprint(err)) {
-					assert.Equal(t, []byte("A"), entity)
-					assert.Equal(t, map[string]string(nil), v)
-				}
-			}
-		}
+		checkRoute(t, r, req, nil, []byte("A"), nil)
 	}
-
 	req, err = NewRequest("PUT", "/a", nil)
 	if assert.Nil(t, err, fmt.Sprint(err)) {
-		x, v, err = r.Find(req)
-		if assert.Nil(t, err, fmt.Sprintf("%v", err)) {
-			if assert.NotNil(t, x) {
-				r, _ := x.handler(nil, Context{})
-				entity, err := r.ReadEntity()
-				if assert.Nil(t, err, fmt.Sprint(err)) {
-					assert.Equal(t, []byte("B"), entity)
-					assert.Equal(t, map[string]string(nil), v)
-				}
-			}
-		}
+		checkRoute(t, r, req, nil, []byte("B"), nil)
 	}
-
 	req, err = NewRequest("ANYTHING", "/a", nil)
 	if assert.Nil(t, err, fmt.Sprint(err)) {
-		x, v, err = r.Find(req)
-		if assert.Nil(t, err, fmt.Sprintf("%v", err)) {
-			if assert.NotNil(t, x) {
-				r, _ := x.handler(nil, Context{})
-				entity, err := r.ReadEntity()
-				if assert.Nil(t, err, fmt.Sprint(err)) {
-					assert.Equal(t, []byte("C"), entity)
-					assert.Equal(t, map[string]string(nil), v)
-				}
-			}
-		}
+		checkRoute(t, r, req, nil, []byte("C"), nil)
 	}
 
 	req, err = NewRequest("GET", "/b", nil)
 	if assert.Nil(t, err, fmt.Sprint(err)) {
-		x, v, err = r.Find(req)
-		if assert.Nil(t, err, fmt.Sprintf("%v", err)) {
-			if assert.NotNil(t, x) {
-				r, _ := x.handler(nil, Context{})
-				entity, err := r.ReadEntity()
-				if assert.Nil(t, err, fmt.Sprint(err)) {
-					assert.Equal(t, []byte("D"), entity)
-					assert.Equal(t, map[string]string(nil), v)
-				}
-			}
-		}
+		checkRoute(t, r, req, nil, []byte("D"), nil)
 	}
-
 	req, err = NewRequest("GET", "/c", nil)
 	if assert.Nil(t, err, fmt.Sprint(err)) {
-		x, v, err = r.Find(req)
-		if assert.Nil(t, err, fmt.Sprintf("%v", err)) {
-			if assert.NotNil(t, x) {
-				r, _ := x.handler(nil, Context{})
-				entity, err := r.ReadEntity()
-				if assert.Nil(t, err, fmt.Sprint(err)) {
-					assert.Equal(t, []byte("E"), entity)
-					assert.Equal(t, map[string]string{"var": "c"}, v)
-				}
-			}
-		}
+		checkRoute(t, r, req, map[string]string{"var": "c"}, []byte("E"), nil)
 	}
 
 	// subrouter paths
 
 	req, err = NewRequest("GET", "/x/a", nil)
 	if assert.Nil(t, err, fmt.Sprint(err)) {
-		x, v, err = r.Find(req)
-		if assert.Nil(t, err, fmt.Sprintf("%v", err)) {
-			if assert.NotNil(t, x) {
-				r, _ := x.handler(nil, Context{})
-				entity, err := r.ReadEntity()
-				if assert.Nil(t, err, fmt.Sprint(err)) {
-					assert.Equal(t, []byte("A"), entity)
-					assert.Equal(t, map[string]string(nil), v)
-				}
-			}
-		}
+		checkRoute(t, r, req, nil, []byte("A"), nil)
 	}
-
 	req, err = NewRequest("PUT", "/x/a", nil)
 	if assert.Nil(t, err, fmt.Sprint(err)) {
-		x, v, err = r.Find(req)
-		if assert.Nil(t, err, fmt.Sprintf("%v", err)) {
-			if assert.NotNil(t, x) {
-				r, _ := x.handler(nil, Context{})
-				entity, err := r.ReadEntity()
-				if assert.Nil(t, err, fmt.Sprint(err)) {
-					assert.Equal(t, []byte("B"), entity)
-					assert.Equal(t, map[string]string(nil), v)
-				}
-			}
-		}
+		checkRoute(t, r, req, nil, []byte("B"), nil)
 	}
 
 	req, err = NewRequest("GET", "/x/y/a", nil)
 	if assert.Nil(t, err, fmt.Sprint(err)) {
-		x, v, err = r.Find(req)
-		if assert.Nil(t, err, fmt.Sprintf("%v", err)) {
-			if assert.NotNil(t, x) {
-				r, _ := x.handler(nil, Context{})
-				entity, err := r.ReadEntity()
-				if assert.Nil(t, err, fmt.Sprint(err)) {
-					assert.Equal(t, []byte("D"), entity)
-					assert.Equal(t, map[string]string(nil), v)
-				}
-			}
-		}
+		checkRoute(t, r, req, nil, []byte("D"), nil)
 	}
-
 	req, err = NewRequest("PUT", "/x/y/a", nil)
 	if assert.Nil(t, err, fmt.Sprint(err)) {
-		x, v, err = r.Find(req)
-		if assert.Nil(t, err, fmt.Sprintf("%v", err)) {
-			if assert.NotNil(t, x) {
-				r, _ := x.handler(nil, Context{})
-				entity, err := r.ReadEntity()
-				if assert.Nil(t, err, fmt.Sprint(err)) {
-					assert.Equal(t, []byte("E"), entity)
-					assert.Equal(t, map[string]string(nil), v)
-				}
-			}
-		}
+		checkRoute(t, r, req, nil, []byte("E"), nil)
 	}
-
 	req, err = NewRequest("GET", "/x/y/a/foo/c", nil)
 	if assert.Nil(t, err, fmt.Sprint(err)) {
-		x, v, err = r.Find(req)
-		if assert.Nil(t, err, fmt.Sprintf("%v", err)) {
-			if assert.NotNil(t, x) {
-				r, _ := x.handler(nil, Context{})
-				entity, err := r.ReadEntity()
-				if assert.Nil(t, err, fmt.Sprint(err)) {
-					assert.Equal(t, []byte("A"), entity)
-					assert.Equal(t, map[string]string(nil), v)
-				}
-			}
-		}
+		checkRoute(t, r, req, nil, []byte("A"), nil)
 	}
-
 	req, err = NewRequest("GET", "/x/y/a/b/c/d", nil)
 	if assert.Nil(t, err, fmt.Sprint(err)) {
-		x, v, err = r.Find(req)
-		if assert.Nil(t, err, fmt.Sprintf("%v", err)) {
-			if assert.NotNil(t, x) {
-				r, _ := x.handler(nil, Context{})
-				entity, err := r.ReadEntity()
-				if assert.Nil(t, err, fmt.Sprint(err)) {
-					assert.Equal(t, []byte("B"), entity)
-					assert.Equal(t, map[string]string(nil), v)
-				}
-			}
-		}
+		checkRoute(t, r, req, nil, []byte("B"), nil)
 	}
 
 	// match in subrouter directly
 
 	req, err = NewRequest("GET", "/x/a", nil)
 	if assert.Nil(t, err, fmt.Sprint(err)) {
-		x, v, err = s1.Find(req)
-		if assert.Nil(t, err, fmt.Sprintf("%v", err)) {
-			if assert.NotNil(t, x) {
-				r, _ := x.handler(nil, Context{})
-				entity, err := r.ReadEntity()
-				if assert.Nil(t, err, fmt.Sprint(err)) {
-					assert.Equal(t, []byte("A"), entity)
-					assert.Equal(t, map[string]string(nil), v)
-				}
-			}
-		}
+		checkRoute(t, r, req, nil, []byte("A"), nil)
 	}
-
 	req, err = NewRequest("PUT", "/x/a", nil)
 	if assert.Nil(t, err, fmt.Sprint(err)) {
-		x, v, err = s1.Find(req)
-		if assert.Nil(t, err, fmt.Sprintf("%v", err)) {
-			if assert.NotNil(t, x) {
-				r, _ := x.handler(nil, Context{})
-				entity, err := r.ReadEntity()
-				if assert.Nil(t, err, fmt.Sprint(err)) {
-					assert.Equal(t, []byte("B"), entity)
-					assert.Equal(t, map[string]string(nil), v)
-				}
-			}
-		}
+		checkRoute(t, r, req, nil, []byte("B"), nil)
 	}
 
 	req, err = NewRequest("GET", "/x/y/a", nil)
 	if assert.Nil(t, err, fmt.Sprint(err)) {
-		x, v, err = s2.Find(req)
-		if assert.Nil(t, err, fmt.Sprintf("%v", err)) {
-			if assert.NotNil(t, x) {
-				r, _ := x.handler(nil, Context{})
-				entity, err := r.ReadEntity()
-				if assert.Nil(t, err, fmt.Sprint(err)) {
-					assert.Equal(t, []byte("D"), entity)
-					assert.Equal(t, map[string]string(nil), v)
-				}
-			}
-		}
+		checkRoute(t, r, req, nil, []byte("D"), nil)
 	}
-
 	req, err = NewRequest("PUT", "/x/y/a", nil)
 	if assert.Nil(t, err, fmt.Sprint(err)) {
-		x, v, err = s2.Find(req)
-		if assert.Nil(t, err, fmt.Sprintf("%v", err)) {
-			if assert.NotNil(t, x) {
-				r, _ := x.handler(nil, Context{})
-				entity, err := r.ReadEntity()
-				if assert.Nil(t, err, fmt.Sprint(err)) {
-					assert.Equal(t, []byte("E"), entity)
-					assert.Equal(t, map[string]string(nil), v)
-				}
-			}
-		}
+		checkRoute(t, r, req, nil, []byte("E"), nil)
 	}
 
 	// match with parameters
 
 	req, err = NewRequest("GET", "/z/a?foo=nope", nil)
 	if assert.Nil(t, err, fmt.Sprint(err)) {
-		x, v, err = r.Find(req)
+		x, _, err := r.Find(req)
 		if assert.Nil(t, err, fmt.Sprint(err)) {
 			assert.Nil(t, x)
 		}
 	}
-
 	req, err = NewRequest("GET", "/z/a?foo=bar", nil)
 	if assert.Nil(t, err, fmt.Sprint(err)) {
-		x, v, err = r.Find(req)
-		if assert.Nil(t, err, fmt.Sprintf("%v", err)) {
-			if assert.NotNil(t, x) {
-				r, _ := x.handler(nil, Context{})
-				entity, err := r.ReadEntity()
-				if assert.Nil(t, err, fmt.Sprint(err)) {
-					assert.Equal(t, []byte("A"), entity)
-					assert.Equal(t, map[string]string(nil), v)
-				}
-			}
-		}
+		checkRoute(t, r, req, nil, []byte("A"), nil)
 	}
-
 	req, err = NewRequest("GET", "/z/b?foo=bar", nil)
 	if assert.Nil(t, err, fmt.Sprint(err)) {
-		x, v, err = r.Find(req)
+		x, _, err := r.Find(req)
 		if assert.Nil(t, err, fmt.Sprint(err)) {
 			assert.Nil(t, x)
 		}
 	}
-
 	req, err = NewRequest("GET", "/z/b?foo=bar&zap=pap", nil)
 	if assert.Nil(t, err, fmt.Sprint(err)) {
-		x, v, err = r.Find(req)
-		if assert.Nil(t, err, fmt.Sprintf("%v", err)) {
-			if assert.NotNil(t, x) {
-				r, _ := x.handler(nil, Context{})
-				entity, err := r.ReadEntity()
-				if assert.Nil(t, err, fmt.Sprint(err)) {
-					assert.Equal(t, []byte("B"), entity)
-					assert.Equal(t, map[string]string(nil), v)
-				}
-			}
-		}
+		checkRoute(t, r, req, nil, []byte("B"), nil)
 	}
-
 	req, err = NewRequest("GET", "/z/b?foo=bar&foo=car&zap=pap", nil)
 	if assert.Nil(t, err, fmt.Sprint(err)) {
-		x, v, err = r.Find(req)
-		if assert.Nil(t, err, fmt.Sprintf("%v", err)) {
-			if assert.NotNil(t, x) {
-				r, _ := x.handler(nil, Context{})
-				entity, err := r.ReadEntity()
-				if assert.Nil(t, err, fmt.Sprint(err)) {
-					assert.Equal(t, []byte("C"), entity)
-					assert.Equal(t, map[string]string(nil), v)
-				}
-			}
-		}
+		checkRoute(t, r, req, nil, []byte("C"), nil)
 	}
 
 }
