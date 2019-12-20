@@ -123,7 +123,7 @@ func TestRoutes(t *testing.T) {
 	r.Add("/{var}", funcE)
 
 	s1 := r.Subrouter("/x")
-	s1.Add("/a", funcA).Methods("GET")
+	s1.Add("/a", funcA).Methods("GET", "POST")
 	s1.Add("/a", funcB).Methods("PUT")
 
 	s2 := s1.Subrouter("/y")
@@ -136,6 +136,10 @@ func TestRoutes(t *testing.T) {
 	s3.Add("/a", funcA).Methods("GET").Param("foo", "bar")
 	s3.Add("/b", funcB).Methods("GET").Param("foo", "bar").Param("zap", "pap")
 	s3.Add("/b", funcC).Methods("GET").Params(url.Values{"foo": {"bar", "car"}, "zap": {"pap"}})
+
+	for _, e := range r.Routes() {
+		fmt.Println("> ", e)
+	}
 
 	req, err = NewRequest("GET", "/a", nil)
 	if assert.Nil(t, err, fmt.Sprint(err)) {
@@ -162,6 +166,10 @@ func TestRoutes(t *testing.T) {
 	// subrouter paths
 
 	req, err = NewRequest("GET", "/x/a", nil)
+	if assert.Nil(t, err, fmt.Sprint(err)) {
+		checkRoute(t, r, req, nil, []byte("A"), nil)
+	}
+	req, err = NewRequest("POST", "/x/a", nil)
 	if assert.Nil(t, err, fmt.Sprint(err)) {
 		checkRoute(t, r, req, nil, []byte("A"), nil)
 	}

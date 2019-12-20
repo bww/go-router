@@ -104,6 +104,18 @@ func (p path) Matches(s string) (bool, Vars) {
 	return true, vars
 }
 
+// Describe this path
+func (p path) String() string {
+	b := strings.Builder{}
+	for i, e := range p {
+		if i > 0 {
+			b.WriteRune('/')
+		}
+		b.WriteString(string(e))
+	}
+	return b.String()
+}
+
 // An individual route
 type Route struct {
 	handler Handler
@@ -201,6 +213,40 @@ func (r *Route) Handle(req *Request, context Context) (*Response, error) {
 	return r.handler(req, context)
 }
 
+// Describe this route
+func (r *Route) String() string {
+	b := strings.Builder{}
+	switch len(r.methods) {
+	case 0:
+		b.WriteString("*")
+	case 1:
+		b.WriteString(r.methods[0])
+	default:
+		b.WriteString("{" + strings.Join(r.methods, ", ") + "}")
+	}
+	b.WriteString(" ")
+	switch len(r.paths) {
+	case 0:
+		b.WriteString("{}")
+	case 1:
+		b.WriteString(r.paths[0].String())
+	default:
+		b.WriteString("{")
+		for i, e := range r.paths {
+			if i > 0 {
+				b.WriteString(", ")
+			}
+			b.WriteString(e.String())
+		}
+		b.WriteString("}")
+	}
+	if len(r.params) > 0 {
+		b.WriteString(" ?")
+		b.WriteString(r.params.Encode())
+	}
+	return b.String()
+}
+
 // Dead simple router
 type Router interface {
 	Use(f Handler)
@@ -208,6 +254,7 @@ type Router interface {
 	Find(r *Request) (*Route, Vars, error)
 	Handle(r *Request) (*Response, error)
 	Subrouter(p string) Router
+	Routes() []*Route
 }
 
 type router struct {
@@ -217,6 +264,13 @@ type router struct {
 
 func New() Router {
 	return &router{}
+}
+
+// Obtain a copy of all the routes managed by this router
+func (r *router) Routes() []*Route {
+	routes := make([]*Route, len(r.routes))
+	copy(routes, r.routes)
+	return routes
 }
 
 // Derive a subrouter from this router with the specified path prefix
@@ -277,6 +331,11 @@ func (r router) Handle(req *Request) (*Response, error) {
 type subrouter struct {
 	parent Router
 	prefix string
+}
+
+// Subrouter routes are not supported
+func (r *subrouter) Routes() []*Route {
+	return nil
 }
 
 // Derive a subrouter from this router with the specified path prefix
