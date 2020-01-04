@@ -7,20 +7,16 @@ import (
 	"reflect"
 	"strings"
 
-	paths "path"
+	pathutil "path"
+
+	"github.com/bww/go-router/path"
 )
 
-const (
-	wildOne   = component("*")
-	wildMulti = component("**")
-)
-
-type Vars map[string]string
 type Attributes map[string]interface{}
 
 // Request context
 type Context struct {
-	Vars  Vars
+	Vars  path.Vars
 	Attrs Attributes
 }
 
@@ -32,95 +28,11 @@ type matchState struct {
 // Route handler
 type Handler func(*Request, Context) (*Response, error)
 
-// A path component
-type component string
-
-// Does a component match
-func (c component) Matches(s string) (bool, string) {
-	if c == wildOne || c == wildMulti {
-		return true, "" // matches everything, captures nothing
-	} else if string(c) == s {
-		return true, ""
-	} else if l := len(c); l < 2 {
-		return false, ""
-	} else if c[0] == '{' && c[l-1] == '}' {
-		return true, strings.TrimSpace(string(c[1 : l-1])) // matches everything
-	} else {
-		return false, ""
-
-	}
-}
-
-// A matching path
-type path []component
-
-// Split a path into (first component, remainder)
-func splitPath(s string) (string, string) {
-	var invar bool
-	for i, e := range s {
-		if e == '/' && !invar {
-			return s[:i], s[i+1:]
-		} else if e == '{' {
-			invar = true
-		} else if e == '}' {
-			invar = false
-		}
-	}
-	return s, ""
-}
-
-// Parse a path
-func parsePath(s string) path {
-	p := make(path, 0)
-	var c string
-	for s != "" {
-		c, s = splitPath(s)
-		p = append(p, component(c))
-	}
-	return p
-}
-
-// Does a path match
-func (p path) Matches(s string) (bool, Vars) {
-	var vars map[string]string
-	var c string
-	var e component
-	for _, e = range p {
-		c, s = splitPath(s)
-		m, n := e.Matches(c)
-		if !m {
-			return false, nil
-		}
-		if n != "" {
-			if vars == nil {
-				vars = make(map[string]string)
-			}
-			vars[n] = c
-		}
-	}
-	if s != "" && e != wildMulti {
-		return false, nil
-	}
-	return true, vars
-}
-
-// Describe this path
-func (p path) String() string {
-	b := strings.Builder{}
-	for i, e := range p {
-		if i > 0 {
-			b.WriteRune('/')
-		}
-		b.WriteString(string(e))
-	}
-	return b.String()
-}
-
 // An individual route
 type Route struct {
 	handler Handler
 	methods []string
-	paths   []path
+	paths   []path.Path
 	params  url.Values
 	attrs   Attributes
 }
@@ -133,9 +45,9 @@ func (r *Route) Methods(m ...string) *Route {
 
 // Add additional paths
 func (r *Route) Paths(s ...string) *Route {
-	p := make([]path, len(s))
+	p := make([]path.Path, len(s))
 	for i, e := range s {
-		p[i] = parsePath(e)
+		p[i] = path.Parse(e)
 	}
 	r.paths = append(r.paths, p...)
 	return r
@@ -251,7 +163,7 @@ func (r *Route) String() string {
 type Router interface {
 	Use(f Handler)
 	Add(p string, f Handler) *Route
-	Find(r *Request) (*Route, Vars, error)
+	Find(r *Request) (*Route, path.Vars, error)
 	Handle(r *Request) (*Response, error)
 	Subrouter(p string) Router
 	Routes() []*Route
@@ -285,13 +197,13 @@ func (r *router) Use(f Handler) {
 
 // Add a route
 func (r *router) Add(p string, f Handler) *Route {
-	v := &Route{f, nil, []path{parsePath(p)}, nil, nil}
+	v := &Route{f, nil, []path.Path{path.Parse(p)}, nil, nil}
 	r.routes = append(r.routes, v)
 	return v
 }
 
 // Find a route for the request, if we have one
-func (r router) Find(req *Request) (*Route, Vars, error) {
+func (r router) Find(req *Request) (*Route, path.Vars, error) {
 	state := &matchState{}
 	for _, e := range r.routes {
 		m, vars := e.Matches(req, state)
@@ -311,7 +223,7 @@ func (r router) Handle(req *Request) (*Response, error) {
 		return NewResponse(http.StatusNotFound).SetStringEntity("text/plain", "Not found")
 	}
 	if vars == nil {
-		vars = make(Vars)
+		vars = make(path.Vars)
 	}
 
 	cxt := Context{vars, h.attrs}
@@ -350,11 +262,11 @@ func (r *subrouter) Use(f Handler) {
 
 // Add a route
 func (r *subrouter) Add(p string, f Handler) *Route {
-	return r.parent.Add(paths.Join(r.prefix, p), f)
+	return r.parent.Add(pathutil.Join(r.prefix, p), f)
 }
 
 // Find a route for the request, if we have one
-func (r subrouter) Find(req *Request) (*Route, Vars, error) {
+func (r subrouter) Find(req *Request) (*Route, path.Vars, error) {
 	return r.parent.Find(req)
 }
 

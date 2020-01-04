@@ -6,78 +6,12 @@ import (
 	"net/url"
 	"testing"
 
+	"github.com/bww/go-router/path"
+
 	"github.com/stretchr/testify/assert"
 )
 
-func TestPaths(t *testing.T) {
-	var m bool
-	var v map[string]string
-
-	m, _ = parsePath("/").Matches("/")
-	assert.Equal(t, true, m)
-	m, _ = parsePath("/a").Matches("/a")
-	assert.Equal(t, true, m)
-	m, _ = parsePath("/a/b").Matches("/a/b")
-	assert.Equal(t, true, m)
-
-	m, v = parsePath("/a/{var}").Matches("/a/b")
-	assert.Equal(t, true, m)
-	assert.Equal(t, map[string]string{"var": "b"}, v)
-	m, v = parsePath("/a/{var}/c").Matches("/a/b/c")
-	assert.Equal(t, true, m)
-	assert.Equal(t, map[string]string{"var": "b"}, v)
-	m, v = parsePath("/a/{v/r}/c").Matches("/a/b/c")
-	assert.Equal(t, true, m)
-	assert.Equal(t, map[string]string{"v/r": "b"}, v)
-	m, v = parsePath("/a/{var1}/c/{var2}").Matches("/a/b/c/d")
-	assert.Equal(t, true, m)
-	assert.Equal(t, map[string]string{"var1": "b", "var2": "d"}, v)
-
-	m, _ = parsePath("/").Matches("/a")
-	assert.Equal(t, false, m)
-	m, _ = parsePath("/a").Matches("/")
-	assert.Equal(t, false, m)
-	m, _ = parsePath("/a/b").Matches("/a/c")
-	assert.Equal(t, false, m)
-	m, _ = parsePath("/a/{var}").Matches("/a/b/c")
-	assert.Equal(t, false, m)
-	m, _ = parsePath("/a/c/{var}").Matches("/a/b/c")
-	assert.Equal(t, false, m)
-	m, _ = parsePath("/a/{var1}/{var2}").Matches("/x/b/c")
-	assert.Equal(t, false, m)
-	m, _ = parsePath("/a/{var1}/{var2}").Matches("/a/b/c/d")
-	assert.Equal(t, false, m)
-
-	m, _ = parsePath("/*").Matches("/a")
-	assert.Equal(t, true, m)
-	m, _ = parsePath("/*").Matches("/")
-	assert.Equal(t, true, m)
-	m, _ = parsePath("/a/*/c").Matches("/a/b/c")
-	assert.Equal(t, true, m)
-	m, _ = parsePath("/a/*").Matches("/a/b")
-	assert.Equal(t, true, m)
-	m, _ = parsePath("/a/*").Matches("/a/b/c")
-	assert.Equal(t, false, m)
-	m, _ = parsePath("/a/*").Matches("/a/b/c/d")
-	assert.Equal(t, false, m)
-	m, _ = parsePath("/a/**").Matches("/a/b/c/d")
-	assert.Equal(t, true, m)
-	m, _ = parsePath("/a/**").Matches("/a")
-	assert.Equal(t, true, m)
-	m, _ = parsePath("/a/**").Matches("/")
-	assert.Equal(t, false, m)
-	m, _ = parsePath("/a/**/c/d").Matches("/a/b/c/d")
-	assert.Equal(t, true, m)
-	m, _ = parsePath("/**").Matches("/")
-	assert.Equal(t, true, m)
-	m, _ = parsePath("/**").Matches("/a/b/c/d")
-	assert.Equal(t, true, m)
-	m, _ = parsePath("/a/**").Matches("/a/b/c/d")
-	assert.Equal(t, true, m)
-
-}
-
-func checkRoute(t *testing.T, r Router, req *Request, capture Vars, expect []byte, xerr error) {
+func checkRoute(t *testing.T, r Router, req *Request, capture path.Vars, expect []byte, xerr error) {
 	x, v, err := r.Find(req)
 	if xerr != nil {
 		assert.Equal(t, xerr, err)
