@@ -256,12 +256,7 @@ func (r *subrouter) Subrouter(p string) Router {
 	return &subrouter{r, p}
 }
 
-// Add middleware which is wraps every route that is added AFTER the
-// middeware is defined. Routes added before a middleware will not
-// be affected.
-//
-// Routes are wrapped by middleware in the order the middleware is
-// added to the router via this method.
+// Add middleware which wraps every route AFTER the middleware is added
 func (r *subrouter) Use(m Middleware) {
 	r.parent.Use(m)
 }
