@@ -7,7 +7,7 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/bww/go-router"
+	"github.com/bww/go-router/v1"
 
 	"github.com/aws/aws-lambda-go/events"
 )

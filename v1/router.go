@@ -9,7 +9,7 @@ import (
 
 	pathutil "path"
 
-	"github.com/bww/go-router/path"
+	"github.com/bww/go-router/v1/path"
 )
 
 type Attributes map[string]interface{}
@@ -27,6 +27,11 @@ type matchState struct {
 
 // Route handler
 type Handler func(*Request, Context) (*Response, error)
+
+// Middleware provides functionality to wrap a handler producing another handler
+type Middleware interface {
+	Wrap(Handler) Handler
+}
 
 // An individual route
 type Route struct {
@@ -161,7 +166,7 @@ func (r *Route) String() string {
 
 // Dead simple router
 type Router interface {
-	Use(f Handler)
+	Use(m Middleware)
 	Add(p string, f Handler) *Route
 	Find(r *Request) (*Route, path.Vars, error)
 	Handle(r *Request) (*Response, error)
@@ -171,7 +176,7 @@ type Router interface {
 
 type router struct {
 	routes     []*Route
-	middleware []Handler
+	middleware []Middleware
 }
 
 func New() Router {
@@ -190,13 +195,21 @@ func (r *router) Subrouter(p string) Router {
 	return &subrouter{r, p}
 }
 
-// Add middleware which is executed for every route
-func (r *router) Use(f Handler) {
-	r.middleware = append(r.middleware, f)
+// Add middleware which is wraps every route that is added AFTER the
+// middeware is defined. Routes added before a middleware will not
+// be affected.
+//
+// Routes are wrapped by middleware in the order the middleware is
+// added to the router via this method.
+func (r *router) Use(m Middleware) {
+	r.middleware = append(r.middleware, m)
 }
 
 // Add a route
 func (r *router) Add(p string, f Handler) *Route {
+	for _, e := range r.middleware {
+		f = e.Wrap(f)
+	}
 	v := &Route{f, nil, []path.Path{path.Parse(p)}, nil, nil}
 	r.routes = append(r.routes, v)
 	return v
@@ -218,26 +231,14 @@ func (r router) Find(req *Request) (*Route, path.Vars, error) {
 func (r router) Handle(req *Request) (*Response, error) {
 	h, vars, err := r.Find(req)
 	if err != nil {
-		return NewResponse(http.StatusInternalServerError).SetStringEntity("text/plain", fmt.Sprintf("Could not find route: %v", err))
+		return NewResponse(http.StatusInternalServerError).SetString("text/plain", fmt.Sprintf("Could not find route: %v", err))
 	} else if h == nil {
-		return NewResponse(http.StatusNotFound).SetStringEntity("text/plain", "Not found")
+		return NewResponse(http.StatusNotFound).SetString("text/plain", "Not found")
 	}
 	if vars == nil {
 		vars = make(path.Vars)
 	}
-
-	cxt := Context{vars, h.attrs}
-	for _, e := range r.middleware {
-		rsp, err := e(req, cxt)
-		if err != nil {
-			return nil, err
-		}
-		if rsp != nil {
-			return rsp, nil
-		}
-	}
-
-	return h.Handle(req, cxt)
+	return h.Handle(req, Context{vars, h.attrs})
 }
 
 type subrouter struct {
@@ -255,9 +256,14 @@ func (r *subrouter) Subrouter(p string) Router {
 	return &subrouter{r, p}
 }
 
-// Add middleware which is executed for every route
-func (r *subrouter) Use(f Handler) {
-	r.parent.Use(f)
+// Add middleware which is wraps every route that is added AFTER the
+// middeware is defined. Routes added before a middleware will not
+// be affected.
+//
+// Routes are wrapped by middleware in the order the middleware is
+// added to the router via this method.
+func (r *subrouter) Use(m Middleware) {
+	r.parent.Use(m)
 }
 
 // Add a route

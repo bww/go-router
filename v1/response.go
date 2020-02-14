@@ -4,6 +4,8 @@ import (
 	"io"
 	"io/ioutil"
 	"net/http"
+
+	"github.com/bww/go-router/v1/entity"
 )
 
 type Response struct {
@@ -24,39 +26,37 @@ func (r *Response) SetHeader(k, v string) *Response {
 	return r
 }
 
-func (r *Response) SetEntity(e Entity) (*Response, error) {
+func (r *Response) SetEntity(e entity.Entity) (*Response, error) {
 	data := e.Data()
-
 	var closer io.ReadCloser
 	if c, ok := data.(io.ReadCloser); ok {
 		closer = c
 	} else {
 		closer = ioutil.NopCloser(data)
 	}
-
 	r.Entity = closer
 	r.Header.Set("Content-Type", e.Type())
 	return r, nil
 }
 
-func (r *Response) SetBytesEntity(t string, d []byte) (*Response, error) {
-	e, err := NewBytesEntity(t, d)
+func (r *Response) SetBytes(t string, d []byte) (*Response, error) {
+	e, err := entity.NewBytes(t, d)
 	if err != nil {
 		return nil, err
 	}
 	return r.SetEntity(e)
 }
 
-func (r *Response) SetStringEntity(t, d string) (*Response, error) {
-	e, err := NewStringEntity(t, d)
+func (r *Response) SetString(t, d string) (*Response, error) {
+	e, err := entity.NewString(t, d)
 	if err != nil {
 		return nil, err
 	}
 	return r.SetEntity(e)
 }
 
-func (r *Response) SetJSONEntity(d interface{}) (*Response, error) {
-	e, err := NewJSONEntity(d)
+func (r *Response) SetJSON(d interface{}) (*Response, error) {
+	e, err := entity.NewJSON(d)
 	if err != nil {
 		return nil, err
 	}

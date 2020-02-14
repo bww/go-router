@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/bww/go-router"
+	"github.com/bww/go-router/v1"
 
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/stretchr/testify/assert"
@@ -96,7 +96,7 @@ func TestAdapter(t *testing.T) {
 		}
 	}
 
-	hrsp, err := router.NewResponse(http.StatusUnauthorized).SetStringEntity("text/plain", entity)
+	hrsp, err := router.NewResponse(http.StatusUnauthorized).SetString("text/plain", entity)
 	hrsp.Header = make(http.Header)
 	hrsp.Header.Set("Host", "www.github.com")
 	rsp, err := ConvertResponse(hrsp)

@@ -1,4 +1,4 @@
-package router
+package entity
 
 import (
 	"bytes"
@@ -24,22 +24,22 @@ func (r readerEntity) Data() io.Reader {
 	return r.d
 }
 
-func NewReaderEntity(t string, d io.Reader) (*readerEntity, error) {
+func New(t string, d io.Reader) (*readerEntity, error) {
 	return &readerEntity{t, d}, nil
 }
 
-func NewBytesEntity(t string, d []byte) (*readerEntity, error) {
+func NewBytes(t string, d []byte) (*readerEntity, error) {
 	return &readerEntity{t, bytes.NewReader(d)}, nil
 }
 
-func NewStringEntity(t string, d string) (*readerEntity, error) {
+func NewString(t string, d string) (*readerEntity, error) {
 	return &readerEntity{t, bytes.NewReader([]byte(d))}, nil
 }
 
-func NewJSONEntity(e interface{}) (*readerEntity, error) {
+func NewJSON(e interface{}) (*readerEntity, error) {
 	d, err := json.Marshal(e)
 	if err != nil {
 		return nil, err
 	}
-	return NewBytesEntity("application/json", d)
+	return NewBytes("application/json", d)
 }

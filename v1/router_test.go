@@ -6,7 +6,7 @@ import (
 	"net/url"
 	"testing"
 
-	"github.com/bww/go-router/path"
+	"github.com/bww/go-router/v1/path"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -33,19 +33,19 @@ func TestRoutes(t *testing.T) {
 	var err error
 
 	funcA := func(*Request, Context) (*Response, error) {
-		return NewResponse(http.StatusOK).SetStringEntity("text/plain", "A")
+		return NewResponse(http.StatusOK).SetString("text/plain", "A")
 	}
 	funcB := func(*Request, Context) (*Response, error) {
-		return NewResponse(http.StatusOK).SetStringEntity("text/plain", "B")
+		return NewResponse(http.StatusOK).SetString("text/plain", "B")
 	}
 	funcC := func(*Request, Context) (*Response, error) {
-		return NewResponse(http.StatusOK).SetStringEntity("text/plain", "C")
+		return NewResponse(http.StatusOK).SetString("text/plain", "C")
 	}
 	funcD := func(*Request, Context) (*Response, error) {
-		return NewResponse(http.StatusOK).SetStringEntity("text/plain", "D")
+		return NewResponse(http.StatusOK).SetString("text/plain", "D")
 	}
 	funcE := func(*Request, Context) (*Response, error) {
-		return NewResponse(http.StatusOK).SetStringEntity("text/plain", "E")
+		return NewResponse(http.StatusOK).SetString("text/plain", "E")
 	}
 
 	r := New()
@@ -183,7 +183,7 @@ func TestRoutes(t *testing.T) {
 func BenchmarkRoutes(b *testing.B) {
 
 	funcA := func(*Request, Context) (*Response, error) {
-		return NewResponse(http.StatusOK).SetStringEntity("text/plain", "A")
+		return NewResponse(http.StatusOK).SetString("text/plain", "A")
 	}
 
 	r := New()
