@@ -2,14 +2,28 @@ package router
 
 import (
 	"fmt"
+	"math/rand"
 	"net/http"
 	"net/url"
 	"testing"
+	"time"
 
 	"github.com/bww/go-router/v1/path"
 
 	"github.com/stretchr/testify/assert"
 )
+
+var randomChars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
+
+var seededRand *rand.Rand = rand.New(rand.NewSource(time.Now().UnixNano()))
+
+func randomString(n int) string {
+	v := make([]byte, n)
+	for i := 0; i < n; i++ {
+		v[i] = randomChars[seededRand.Intn(len(randomChars))]
+	}
+	return string(v)
+}
 
 func checkRoute(t *testing.T, r Router, req *Request, capture path.Vars, expect []byte, xerr error) {
 	x, v, err := r.Find(req)
@@ -211,6 +225,35 @@ func BenchmarkRoutes(b *testing.B) {
 		}
 		if x == nil {
 			panic(fmt.Errorf("Could not route: %v", req))
+		}
+	}
+
+}
+
+func TestRouteAttrs(t *testing.T) {
+	var req *Request
+	var err error
+
+	funcA := func(_ *Request, cxt Context) (*Response, error) {
+		key, val := randomString(16), randomString(16)
+		cxt.Attrs[key] = val
+		fmt.Println(">>>", cxt.Attrs)
+		assert.Equal(t, Attributes{"key": "val", key: val}, cxt.Attrs)
+		return NewResponse(http.StatusOK).SetString("text/plain", "A")
+	}
+
+	r := New()
+	r.Add("/a", funcA).Methods("GET").Attr("key", "val")
+
+	for _, e := range r.Routes() {
+		fmt.Println("> ", e)
+	}
+
+	for i := 0; i < 3; i++ {
+		req, err = NewRequest("GET", "/a", nil)
+		if assert.Nil(t, err, fmt.Sprint(err)) {
+			_, err := r.Handle(req)
+			assert.Nil(t, err, fmt.Sprint(err))
 		}
 	}
 

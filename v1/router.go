@@ -12,7 +12,16 @@ import (
 	"github.com/bww/go-router/v1/path"
 )
 
+// Request attributes
 type Attributes map[string]interface{}
+
+func (a Attributes) Copy() Attributes {
+	c := make(Attributes)
+	for k, v := range a {
+		c[k] = v
+	}
+	return c
+}
 
 // Request context
 type Context struct {
@@ -238,7 +247,7 @@ func (r router) Handle(req *Request) (*Response, error) {
 	if vars == nil {
 		vars = make(path.Vars)
 	}
-	return h.Handle(req, Context{vars, h.attrs})
+	return h.Handle(req, Context{vars, h.attrs.Copy()})
 }
 
 type subrouter struct {
