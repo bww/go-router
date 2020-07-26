@@ -16,7 +16,7 @@ func NewRequest(method, path string, entity io.Reader) (*Request, error) {
 	return (*Request)(hreq), nil
 }
 
-func (r *Request) Clone(ctx context.Context) *Request {
+func (r *Request) Clone(cxt context.Context) *Request {
 	return (*Request)((*http.Request)(r).Clone(cxt))
 }
 
@@ -24,6 +24,6 @@ func (r *Request) Context() context.Context {
 	return (*http.Request)(r).Context()
 }
 
-func (r *Request) WithContext(ctx context.Context) *Request {
+func (r *Request) WithContext(cxt context.Context) *Request {
 	return (*Request)((*http.Request)(r).WithContext(cxt))
 }
