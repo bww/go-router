@@ -37,14 +37,14 @@ type Path struct {
 }
 
 // Split a path into (first component, remainder)
-func splitPath(s string, sep rune) (string, string) {
+func splitPath(s string, sep rune, vars bool) (string, string) {
 	var invar bool
 	for i, e := range s {
 		if e == sep && !invar {
 			return s[:i], s[i+1:]
-		} else if e == '{' {
+		} else if vars && e == '{' {
 			invar = true
-		} else if e == '}' {
+		} else if vars && e == '}' {
 			invar = false
 		}
 	}
@@ -61,7 +61,7 @@ func ParseSeparator(s string, sep rune) Path {
 	var p []component
 	var c string
 	for s != "" {
-		c, s = splitPath(s, sep)
+		c, s = splitPath(s, sep, true)
 		p = append(p, component(c))
 	}
 	return Path{
@@ -76,7 +76,7 @@ func (p Path) Matches(s string) (bool, Vars) {
 	var c string
 	var e component
 	for _, e = range p.cmp {
-		c, s = splitPath(s, p.sep)
+		c, s = splitPath(s, p.sep, false)
 		m, n := e.Matches(c)
 		if !m {
 			return false, nil

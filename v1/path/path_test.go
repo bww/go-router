@@ -35,6 +35,9 @@ func TestPaths(t *testing.T) {
 		{
 			"/a/{var1}/c/{var2}", "/a/b/c/d", true, map[string]string{"var1": "b", "var2": "d"},
 		},
+		{
+			"/a/{var}", "/a/{hello}", true, map[string]string{"var": "{hello}"}, // don't interpret vars in matched path
+		},
 
 		{
 			"/", "/a", false, nil,
