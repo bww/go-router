@@ -28,12 +28,12 @@ func (t *Tree) separator() rune {
 	}
 }
 
-func (t *Tree) Add(p string) {
-	t.add(ParseSeparator(p, t.separator()).cmp)
+func (t *Tree) Add(p string, v interface{}) {
+	t.add(ParseSeparator(p, t.separator()).cmp, v)
 }
 
-func (t *Tree) add(p []component) {
-	if len(p) > 0 {
+func (t *Tree) add(p []component, v interface{}) {
+	if l := len(p); l > 0 {
 		var f *node
 
 		// attempt to find the first component
@@ -45,44 +45,62 @@ func (t *Tree) add(p []component) {
 		}
 		// create the node if we didn't find it
 		if f == nil {
-			f = &node{cmp: p[0], sub: &Tree{}}
+			f = &node{cmp: p[0]}
 			t.n = append(t.n, f)
 		}
 
-		// recurse to it with the remaining components
-		f.sub.add(p[1:])
+		// recurse to it with the remaining components or finalize
+		if l > 1 {
+			if f.sub == nil {
+				f.sub = &Tree{}
+			}
+			f.sub.add(p[1:], v)
+		} else {
+			f.value = v
+		}
 	}
 }
 
-func (t *Tree) Find(s string) (Path, Vars, bool) {
-	return t.find(s, []component{}, Vars{})
+func (t *Tree) Find(s string) (interface{}, Vars, bool) {
+	return t.find(s, Vars{})
 }
 
-func (t *Tree) find(s string, p []component, vars Vars) (Path, Vars, bool) {
+func (t *Tree) find(s string, vars Vars) (interface{}, Vars, bool) {
 	c, r := splitPath(s, t.separator(), false)
 
 	// search for a match in this node
-	var n *node
 	for _, e := range t.n {
 		if m, v := e.cmp.Matches(c); m {
-			if v != "" {
-				vars[v] = c
+			if e.sub == nil {
+				if r == "" {
+					if v != "" {
+						vars[v] = c
+					}
+					return e.value, vars, true
+				}
+			} else {
+				if r == "" {
+					if e.value != nil {
+						if v != "" {
+							vars[v] = c
+						}
+						return e.value, vars, true
+					} else {
+						break
+					}
+				}
+				if val, x, ok := e.sub.find(r, vars); ok {
+					if v != "" {
+						vars[v] = c
+					}
+					return val, x, ok
+				}
 			}
-			n = e
-			break
 		}
 	}
-	if n == nil {
-		return Path{}, nil, false
-	}
 
-	// append to our path and continue
-	p = append(p, n.cmp)
-	if r != "" {
-		return n.sub.find(r, p, vars)
-	} else {
-		return Path{cmp: p, sep: t.separator()}, vars, true
-	}
+	// not found
+	return nil, nil, false
 }
 
 func (t *Tree) Describe() string {
@@ -99,7 +117,9 @@ func (t *Tree) describe(b *strings.Builder, d int) *strings.Builder {
 			b.WriteString(string(e.cmp))
 		}
 		b.WriteString("\n")
-		e.sub.describe(b, d+1)
+		if e.sub != nil {
+			e.sub.describe(b, d+1)
+		}
 	}
 	return b
 }
