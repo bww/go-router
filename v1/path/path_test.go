@@ -43,6 +43,9 @@ func TestPaths(t *testing.T) {
 			"/", "/a", false, nil,
 		},
 		{
+			"/a", "/", false, nil,
+		},
+		{
 			"/a/b", "/a/c", false, nil,
 		},
 		{
