@@ -1,8 +1,11 @@
 package path
 
 import (
+	"errors"
 	"strings"
 )
+
+var ErrCollision = errors.New("Path collision")
 
 type node struct {
 	cmp   component
@@ -16,6 +19,8 @@ type Tree struct {
 	sep rune
 }
 
+// Create a tree with the specified separator. The zero
+// value of a tree uses the default separator: '/'.
 func (t *Tree) New(sep rune) *Tree {
 	return &Tree{sep: sep}
 }
@@ -28,11 +33,11 @@ func (t *Tree) separator() rune {
 	}
 }
 
-func (t *Tree) Add(p string, v interface{}) {
-	t.add(ParseSeparator(p, t.separator()).cmp, v)
+func (t *Tree) Add(p string, v interface{}) error {
+	return t.add(ParseSeparator(p, t.separator()).cmp, v)
 }
 
-func (t *Tree) add(p []component, v interface{}) {
+func (t *Tree) add(p []component, v interface{}) error {
 	if l := len(p); l > 0 {
 		var f *node
 
@@ -54,11 +59,15 @@ func (t *Tree) add(p []component, v interface{}) {
 			if f.sub == nil {
 				f.sub = &Tree{}
 			}
-			f.sub.add(p[1:], v)
+			return f.sub.add(p[1:], v)
 		} else {
+			if f.value != nil {
+				return ErrCollision
+			}
 			f.value = v
 		}
 	}
+	return nil
 }
 
 func (t *Tree) Find(s string) (interface{}, Vars, bool) {

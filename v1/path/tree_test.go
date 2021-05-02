@@ -8,18 +8,34 @@ import (
 )
 
 func TestTree(t *testing.T) {
+	paths := []struct {
+		Path  string
+		Error error
+	}{
+		{"/", nil},
+		{"/a", nil},
+		{"/a/b", nil},
+		{"/a/b/c", nil},
+		{"/a/b/d", nil},
+		{"/a/{var}/e", nil},
+		{"/a/b/e", nil},
+		{"/a/{var}", nil},
+		{"/a/{var}/c", nil},
+		{"/a/*/*/d", nil},
+		{"/a/b/c/d/e/f/g", nil},
+
+		{"/a/b", ErrCollision},
+		{"/a/b/c", ErrCollision},
+		{"/a/{var}/c", ErrCollision},
+		{"/a/*/*/d", ErrCollision},
+		{"/a/b/c/d/e/f/g", ErrCollision},
+	}
+
 	tree := &Tree{}
-	tree.Add("/", "/")
-	tree.Add("/a", "/a")
-	tree.Add("/a/b", "/a/b")
-	tree.Add("/a/b/c", "/a/b/c")
-	tree.Add("/a/b/d", "/a/b/d")
-	tree.Add("/a/{var}/e", "/a/{var}/e")
-	tree.Add("/a/b/e", "/a/b/e")
-	tree.Add("/a/{var}", "/a/{var}")
-	tree.Add("/a/{var}/c", "/a/{var}/c")
-	tree.Add("/a/*/*/d", "/a/*/*/d")
-	tree.Add("/a/b/c/d/e/f/g", "/a/b/c/d/e/f/g")
+	for _, e := range paths {
+		err := tree.Add(e.Path, e.Path)
+		assert.Equal(t, e.Error, err)
+	}
 
 	fmt.Println(tree.Describe())
 
@@ -29,6 +45,9 @@ func TestTree(t *testing.T) {
 		Value  interface{}
 		Vars   Vars
 	}{
+		{
+			"/", true, "/", Vars{},
+		},
 		{
 			"/a/b", true, "/a/b", Vars{},
 		},
