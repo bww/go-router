@@ -5,8 +5,9 @@ import (
 )
 
 const (
-	wildOne   = component("*")
-	wildMulti = component("**")
+	wildOne    = component("*")
+	wildMulti  = component("**")
+	defaultSep = '/'
 )
 
 type Vars map[string]string
@@ -26,18 +27,20 @@ func (c component) Matches(s string) (bool, string) {
 		return true, strings.TrimSpace(string(c[1 : l-1])) // matches everything
 	} else {
 		return false, ""
-
 	}
 }
 
 // A matching path
-type Path []component
+type Path struct {
+	cmp []component
+	sep rune
+}
 
 // Split a path into (first component, remainder)
-func splitPath(s string) (string, string) {
+func splitPath(s string, sep rune) (string, string) {
 	var invar bool
 	for i, e := range s {
-		if e == '/' && !invar {
+		if e == sep && !invar {
 			return s[:i], s[i+1:]
 		} else if e == '{' {
 			invar = true
@@ -48,15 +51,23 @@ func splitPath(s string) (string, string) {
 	return s, ""
 }
 
-// Parse a path
+// Parse a path using the default separator '/'
 func Parse(s string) Path {
-	var p Path
+	return ParseSeparator(s, defaultSep)
+}
+
+// Parse a path using the specified separator
+func ParseSeparator(s string, sep rune) Path {
+	var p []component
 	var c string
 	for s != "" {
-		c, s = splitPath(s)
+		c, s = splitPath(s, sep)
 		p = append(p, component(c))
 	}
-	return p
+	return Path{
+		cmp: p,
+		sep: sep,
+	}
 }
 
 // Does a path match
@@ -64,8 +75,8 @@ func (p Path) Matches(s string) (bool, Vars) {
 	var vars map[string]string
 	var c string
 	var e component
-	for _, e = range p {
-		c, s = splitPath(s)
+	for _, e = range p.cmp {
+		c, s = splitPath(s, p.sep)
 		m, n := e.Matches(c)
 		if !m {
 			return false, nil
@@ -86,9 +97,9 @@ func (p Path) Matches(s string) (bool, Vars) {
 // Describe this path
 func (p Path) String() string {
 	b := strings.Builder{}
-	for i, e := range p {
+	for i, e := range p.cmp {
 		if i > 0 {
-			b.WriteRune('/')
+			b.WriteRune(p.sep)
 		}
 		b.WriteString(string(e))
 	}
