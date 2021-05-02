@@ -84,3 +84,30 @@ func TestTree(t *testing.T) {
 	}
 
 }
+
+func BenchmarkFindRoutes(b *testing.B) {
+	paths := []string{
+		"/",
+		"/a",
+		"/a/b",
+		"/a/b/c",
+		"/a/b/d",
+		"/a/{var}/e",
+		"/a/b/e",
+		"/a/{var}",
+		"/a/{var}/c",
+		"/a/*/*/d",
+		"/a/b/c/d/e/f/g",
+	}
+
+	tree := &Tree{}
+	for _, e := range paths {
+		tree.Add(e, e)
+	}
+
+	for i := 0; i < b.N; i++ {
+		for _, e := range paths {
+			tree.Find(e)
+		}
+	}
+}
