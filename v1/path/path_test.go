@@ -129,6 +129,9 @@ func TestPathsSep(t *testing.T) {
 		{
 			"a:{var}", "a:b", true, map[string]string{"var": "b"},
 		},
+		{
+			"a:{var}", "a:{hello}", true, map[string]string{"var": "{hello}"},
+		},
 	}
 	for _, e := range tests {
 		m, v := ParseSeparator(e.Path, sep).Matches(e.Match)

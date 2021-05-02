@@ -15,6 +15,21 @@ type Vars map[string]string
 // A path component
 type component string
 
+// Are components equal
+func (c component) Equals(v component) bool {
+	if c == v {
+		return true
+	}
+	lc, lv := len(c), len(v)
+	if lc < 2 || lv < 2 {
+		return false
+	} else if c[0] == '{' && c[lc-1] == '}' && v[0] == '{' && v[lv-1] == '}' {
+		return true
+	} else {
+		return false
+	}
+}
+
 // Does a component match
 func (c component) Matches(s string) (bool, string) {
 	if c == wildOne || c == wildMulti {
