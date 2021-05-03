@@ -45,6 +45,17 @@ func (c component) Matches(s string) (bool, string) {
 	}
 }
 
+func joinCmp(c []component, sep rune) string {
+	b := strings.Builder{}
+	for i, e := range c {
+		if i > 0 {
+			b.WriteRune(sep)
+		}
+		b.WriteString(string(e))
+	}
+	return b.String()
+}
+
 // A matching path
 type Path struct {
 	cmp []component
@@ -111,12 +122,5 @@ func (p Path) Matches(s string) (bool, Vars) {
 
 // Describe this path
 func (p Path) String() string {
-	b := strings.Builder{}
-	for i, e := range p.cmp {
-		if i > 0 {
-			b.WriteRune(p.sep)
-		}
-		b.WriteString(string(e))
-	}
-	return b.String()
+	return joinCmp(p.cmp, p.sep)
 }

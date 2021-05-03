@@ -112,6 +112,27 @@ func (t *Tree) find(s string, vars Vars) (interface{}, Vars, bool) {
 	return nil, nil, false
 }
 
+func (t *Tree) Iter(f func(string, interface{}) bool) {
+	t.iter([]component{}, f)
+}
+
+func (t *Tree) iter(c []component, f func(p string, v interface{}) bool) bool {
+	for _, e := range t.n {
+		d := append(c, e.cmp)
+		if v := e.value; v != nil {
+			if !f(joinCmp(d, t.separator()), v) {
+				return false
+			}
+		}
+		if e.sub != nil {
+			if !e.sub.iter(d, f) {
+				return false
+			}
+		}
+	}
+	return true
+}
+
 func (t *Tree) Describe() string {
 	return t.describe(&strings.Builder{}, 0).String()
 }
