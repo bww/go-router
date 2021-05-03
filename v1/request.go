@@ -1,6 +1,7 @@
 package router
 
 import (
+	"context"
 	"io"
 	"net/http"
 )
@@ -13,4 +14,8 @@ func NewRequest(method, path string, entity io.Reader) (*Request, error) {
 		return nil, err
 	}
 	return (*Request)(hreq), nil
+}
+
+func (r *Request) Context() context.Context {
+	return (*http.Request)(r).Context()
 }
