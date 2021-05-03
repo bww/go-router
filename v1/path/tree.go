@@ -48,6 +48,7 @@ func (t *Tree) add(p []component, v interface{}) error {
 				break
 			}
 		}
+
 		// create the node if we didn't find it
 		if f == nil {
 			f = &node{cmp: p[0]}
@@ -97,8 +98,7 @@ func (t *Tree) find(s string, vars Vars) (interface{}, Vars, bool) {
 					} else {
 						break
 					}
-				}
-				if val, x, ok := e.sub.find(r, vars); ok {
+				} else if val, x, ok := e.sub.find(r, vars); ok {
 					if v != "" {
 						vars[v] = c
 					}
