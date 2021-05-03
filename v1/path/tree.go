@@ -58,7 +58,7 @@ func (t *Tree) add(p []component, v interface{}) error {
 		// recurse to it with the remaining components or finalize
 		if l > 1 {
 			if f.sub == nil {
-				f.sub = &Tree{}
+				f.sub = &Tree{sep: t.sep}
 			}
 			return f.sub.add(p[1:], v)
 		} else {

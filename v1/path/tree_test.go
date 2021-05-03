@@ -101,6 +101,22 @@ func TestTreeIter(t *testing.T) {
 	assert.Equal(t, "/a\n/a/b\n/a/b/c\n/b\n", s)
 }
 
+func TestTreeSep(t *testing.T) {
+	tree := NewTree(':')
+	tree.Add("a", "a")
+	tree.Add("b", "b")
+	tree.Add("a:b", "a:b")
+	tree.Add("a:b:c", "a:b:c")
+
+	var s string
+	tree.Iter(func(p string, v interface{}) bool {
+		s += p + "\n"
+		return true
+	})
+
+	assert.Equal(t, "a\na:b\na:b:c\nb\n", s)
+}
+
 func BenchmarkFindRoutes(b *testing.B) {
 	paths := []string{
 		"/",
