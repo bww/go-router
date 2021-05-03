@@ -21,7 +21,7 @@ type Tree struct {
 
 // Create a tree with the specified separator. The zero
 // value of a tree uses the default separator: '/'.
-func (t *Tree) NewTree(sep rune) *Tree {
+func NewTree(sep rune) *Tree {
 	return &Tree{sep: sep}
 }
 
