@@ -7,69 +7,138 @@ import (
 )
 
 func TestPaths(t *testing.T) {
-	var m bool
-	var v map[string]string
+	tests := []struct {
+		Path   string
+		Match  string
+		Expect bool
+		Vars   Vars
+	}{
+		{
+			"/", "/", true, nil,
+		},
+		{
+			"/a", "/a", true, nil,
+		},
+		{
+			"/a/b", "/a/b", true, nil,
+		},
 
-	m, _ = Parse("/").Matches("/")
-	assert.Equal(t, true, m)
-	m, _ = Parse("/a").Matches("/a")
-	assert.Equal(t, true, m)
-	m, _ = Parse("/a/b").Matches("/a/b")
-	assert.Equal(t, true, m)
+		{
+			"/a/{var}", "/a/b", true, map[string]string{"var": "b"},
+		},
+		{
+			"/a/{var}/c", "/a/b/c", true, map[string]string{"var": "b"},
+		},
+		{
+			"/a/{v/r}/c", "/a/b/c", true, map[string]string{"v/r": "b"},
+		},
+		{
+			"/a/{var1}/c/{var2}", "/a/b/c/d", true, map[string]string{"var1": "b", "var2": "d"},
+		},
+		{
+			"/a/{var}", "/a/{hello}", true, map[string]string{"var": "{hello}"}, // don't interpret vars in matched path
+		},
 
-	m, v = Parse("/a/{var}").Matches("/a/b")
-	assert.Equal(t, true, m)
-	assert.Equal(t, map[string]string{"var": "b"}, v)
-	m, v = Parse("/a/{var}/c").Matches("/a/b/c")
-	assert.Equal(t, true, m)
-	assert.Equal(t, map[string]string{"var": "b"}, v)
-	m, v = Parse("/a/{v/r}/c").Matches("/a/b/c")
-	assert.Equal(t, true, m)
-	assert.Equal(t, map[string]string{"v/r": "b"}, v)
-	m, v = Parse("/a/{var1}/c/{var2}").Matches("/a/b/c/d")
-	assert.Equal(t, true, m)
-	assert.Equal(t, map[string]string{"var1": "b", "var2": "d"}, v)
+		{
+			"/", "/a", false, nil,
+		},
+		{
+			"/a", "/", false, nil,
+		},
+		{
+			"/a/b", "/a/c", false, nil,
+		},
+		{
+			"/a/{var}", "/a/b/c", false, nil,
+		},
+		{
+			"/a/c/{var}", "/a/b/c", false, nil,
+		},
+		{
+			"/a/{var1}/{var2}", "/x/b/c", false, nil,
+		},
+		{
+			"/a/{var1}/{var2}", "/a/b/c/d", false, nil,
+		},
 
-	m, _ = Parse("/").Matches("/a")
-	assert.Equal(t, false, m)
-	m, _ = Parse("/a").Matches("/")
-	assert.Equal(t, false, m)
-	m, _ = Parse("/a/b").Matches("/a/c")
-	assert.Equal(t, false, m)
-	m, _ = Parse("/a/{var}").Matches("/a/b/c")
-	assert.Equal(t, false, m)
-	m, _ = Parse("/a/c/{var}").Matches("/a/b/c")
-	assert.Equal(t, false, m)
-	m, _ = Parse("/a/{var1}/{var2}").Matches("/x/b/c")
-	assert.Equal(t, false, m)
-	m, _ = Parse("/a/{var1}/{var2}").Matches("/a/b/c/d")
-	assert.Equal(t, false, m)
+		{
+			"/*", "/a", true, nil,
+		},
+		{
+			"/*", "/", true, nil,
+		},
+		{
+			"/a/*/c", "/a/b/c", true, nil,
+		},
+		{
+			"/a/*", "/a/b", true, nil,
+		},
+		{
+			"/a/*", "/a/b/c", false, nil,
+		},
+		{
+			"/a/*", "/a/b/c/d", false, nil,
+		},
 
-	m, _ = Parse("/*").Matches("/a")
-	assert.Equal(t, true, m)
-	m, _ = Parse("/*").Matches("/")
-	assert.Equal(t, true, m)
-	m, _ = Parse("/a/*/c").Matches("/a/b/c")
-	assert.Equal(t, true, m)
-	m, _ = Parse("/a/*").Matches("/a/b")
-	assert.Equal(t, true, m)
-	m, _ = Parse("/a/*").Matches("/a/b/c")
-	assert.Equal(t, false, m)
-	m, _ = Parse("/a/*").Matches("/a/b/c/d")
-	assert.Equal(t, false, m)
-	m, _ = Parse("/a/**").Matches("/a/b/c/d")
-	assert.Equal(t, true, m)
-	m, _ = Parse("/a/**").Matches("/a")
-	assert.Equal(t, true, m)
-	m, _ = Parse("/a/**").Matches("/")
-	assert.Equal(t, false, m)
-	m, _ = Parse("/a/**/c/d").Matches("/a/b/c/d")
-	assert.Equal(t, true, m)
-	m, _ = Parse("/**").Matches("/")
-	assert.Equal(t, true, m)
-	m, _ = Parse("/**").Matches("/a/b/c/d")
-	assert.Equal(t, true, m)
-	m, _ = Parse("/a/**").Matches("/a/b/c/d")
-	assert.Equal(t, true, m)
+		{
+			"/a/**", "/a/b/c/d", true, nil,
+		},
+		{
+			"/a/**", "/a", true, nil,
+		},
+		{
+			"/a/**", "/", false, nil,
+		},
+		{
+			"/a/**/c/d", "/a/b/c/d", true, nil,
+		},
+		{
+			"/a/**/x/d", "/a/b/c/d", false, nil,
+		},
+		{
+			"/**", "/", true, nil,
+		},
+		{
+			"/**", "/a/b/c/d", true, nil,
+		},
+		{
+			"/a/**", "/a/b/c/d", true, nil,
+		},
+	}
+	for _, e := range tests {
+		m, v := Parse(e.Path).Matches(e.Match)
+		assert.Equal(t, e.Expect, m)
+		assert.Equal(t, e.Vars, v)
+	}
+}
 
+func TestPathsSep(t *testing.T) {
+	sep := ':'
+	tests := []struct {
+		Path   string
+		Match  string
+		Expect bool
+		Vars   Vars
+	}{
+		{
+			":", ":", true, nil,
+		},
+		{
+			"a", "a", true, nil,
+		},
+		{
+			"a:b", "a:b", true, nil,
+		},
+		{
+			"a:{var}", "a:b", true, map[string]string{"var": "b"},
+		},
+		{
+			"a:{var}", "a:{hello}", true, map[string]string{"var": "{hello}"},
+		},
+	}
+	for _, e := range tests {
+		m, v := ParseSeparator(e.Path, sep).Matches(e.Match)
+		assert.Equal(t, e.Expect, m)
+		assert.Equal(t, e.Vars, v)
+	}
 }
