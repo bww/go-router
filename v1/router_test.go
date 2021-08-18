@@ -25,8 +25,8 @@ func randomString(n int) string {
 	return string(v)
 }
 
-func checkRoute(t *testing.T, r Router, req *Request, capture path.Vars, expect []byte, xerr error) {
-	x, v, err := r.Find(req)
+func checkRoute(t *testing.T, r Router, req *Request, path string, capture path.Vars, expect []byte, xerr error) {
+	x, match, err := r.Find(req)
 	if xerr != nil {
 		assert.Equal(t, xerr, err)
 		return
@@ -36,7 +36,8 @@ func checkRoute(t *testing.T, r Router, req *Request, capture path.Vars, expect 
 			entity, err := r.ReadEntity()
 			if assert.Nil(t, err, fmt.Sprint(err)) {
 				assert.Equal(t, expect, entity)
-				assert.Equal(t, capture, v)
+				assert.Equal(t, path, match.Path)
+				assert.Equal(t, capture, match.Vars)
 			}
 		}
 	}
@@ -91,76 +92,76 @@ func TestRoutes(t *testing.T) {
 
 	req, err = NewRequest("GET", "/a", nil)
 	if assert.Nil(t, err, fmt.Sprint(err)) {
-		checkRoute(t, r, req, nil, []byte("A"), nil)
+		checkRoute(t, r, req, "/a", nil, []byte("A"), nil)
 	}
 	req, err = NewRequest("PUT", "/a", nil)
 	if assert.Nil(t, err, fmt.Sprint(err)) {
-		checkRoute(t, r, req, nil, []byte("B"), nil)
+		checkRoute(t, r, req, "/a", nil, []byte("B"), nil)
 	}
 	req, err = NewRequest("ANYTHING", "/a", nil)
 	if assert.Nil(t, err, fmt.Sprint(err)) {
-		checkRoute(t, r, req, nil, []byte("C"), nil)
+		checkRoute(t, r, req, "/a", nil, []byte("C"), nil)
 	}
 
 	req, err = NewRequest("GET", "/b", nil)
 	if assert.Nil(t, err, fmt.Sprint(err)) {
-		checkRoute(t, r, req, nil, []byte("D"), nil)
+		checkRoute(t, r, req, "/b", nil, []byte("D"), nil)
 	}
 	req, err = NewRequest("GET", "/c", nil)
 	if assert.Nil(t, err, fmt.Sprint(err)) {
-		checkRoute(t, r, req, map[string]string{"var": "c"}, []byte("E"), nil)
+		checkRoute(t, r, req, "/{var}", map[string]string{"var": "c"}, []byte("E"), nil)
 	}
 
 	// subrouter paths
 
 	req, err = NewRequest("GET", "/x/a", nil)
 	if assert.Nil(t, err, fmt.Sprint(err)) {
-		checkRoute(t, r, req, nil, []byte("A"), nil)
+		checkRoute(t, r, req, "/x/a", nil, []byte("A"), nil)
 	}
 	req, err = NewRequest("POST", "/x/a", nil)
 	if assert.Nil(t, err, fmt.Sprint(err)) {
-		checkRoute(t, r, req, nil, []byte("A"), nil)
+		checkRoute(t, r, req, "/x/a", nil, []byte("A"), nil)
 	}
 	req, err = NewRequest("PUT", "/x/a", nil)
 	if assert.Nil(t, err, fmt.Sprint(err)) {
-		checkRoute(t, r, req, nil, []byte("B"), nil)
+		checkRoute(t, r, req, "/x/a", nil, []byte("B"), nil)
 	}
 
 	req, err = NewRequest("GET", "/x/y/a", nil)
 	if assert.Nil(t, err, fmt.Sprint(err)) {
-		checkRoute(t, r, req, nil, []byte("D"), nil)
+		checkRoute(t, r, req, "/x/y/a", nil, []byte("D"), nil)
 	}
 	req, err = NewRequest("PUT", "/x/y/a", nil)
 	if assert.Nil(t, err, fmt.Sprint(err)) {
-		checkRoute(t, r, req, nil, []byte("E"), nil)
+		checkRoute(t, r, req, "/x/y/a", nil, []byte("E"), nil)
 	}
 	req, err = NewRequest("GET", "/x/y/a/foo/c", nil)
 	if assert.Nil(t, err, fmt.Sprint(err)) {
-		checkRoute(t, r, req, nil, []byte("A"), nil)
+		checkRoute(t, r, req, "/x/y/a/*/c", nil, []byte("A"), nil)
 	}
 	req, err = NewRequest("GET", "/x/y/a/b/c/d", nil)
 	if assert.Nil(t, err, fmt.Sprint(err)) {
-		checkRoute(t, r, req, nil, []byte("B"), nil)
+		checkRoute(t, r, req, "/x/y/a/b/**", nil, []byte("B"), nil)
 	}
 
 	// match in subrouter directly
 
 	req, err = NewRequest("GET", "/x/a", nil)
 	if assert.Nil(t, err, fmt.Sprint(err)) {
-		checkRoute(t, r, req, nil, []byte("A"), nil)
+		checkRoute(t, r, req, "/x/a", nil, []byte("A"), nil)
 	}
 	req, err = NewRequest("PUT", "/x/a", nil)
 	if assert.Nil(t, err, fmt.Sprint(err)) {
-		checkRoute(t, r, req, nil, []byte("B"), nil)
+		checkRoute(t, r, req, "/x/a", nil, []byte("B"), nil)
 	}
 
 	req, err = NewRequest("GET", "/x/y/a", nil)
 	if assert.Nil(t, err, fmt.Sprint(err)) {
-		checkRoute(t, r, req, nil, []byte("D"), nil)
+		checkRoute(t, r, req, "/x/y/a", nil, []byte("D"), nil)
 	}
 	req, err = NewRequest("PUT", "/x/y/a", nil)
 	if assert.Nil(t, err, fmt.Sprint(err)) {
-		checkRoute(t, r, req, nil, []byte("E"), nil)
+		checkRoute(t, r, req, "/x/y/a", nil, []byte("E"), nil)
 	}
 
 	// match with parameters
@@ -174,7 +175,7 @@ func TestRoutes(t *testing.T) {
 	}
 	req, err = NewRequest("GET", "/z/a?foo=bar", nil)
 	if assert.Nil(t, err, fmt.Sprint(err)) {
-		checkRoute(t, r, req, nil, []byte("A"), nil)
+		checkRoute(t, r, req, "/z/a", nil, []byte("A"), nil)
 	}
 	req, err = NewRequest("GET", "/z/b?foo=bar", nil)
 	if assert.Nil(t, err, fmt.Sprint(err)) {
@@ -185,11 +186,11 @@ func TestRoutes(t *testing.T) {
 	}
 	req, err = NewRequest("GET", "/z/b?foo=bar&zap=pap", nil)
 	if assert.Nil(t, err, fmt.Sprint(err)) {
-		checkRoute(t, r, req, nil, []byte("B"), nil)
+		checkRoute(t, r, req, "/z/b", nil, []byte("B"), nil)
 	}
 	req, err = NewRequest("GET", "/z/b?foo=bar&foo=car&zap=pap", nil)
 	if assert.Nil(t, err, fmt.Sprint(err)) {
-		checkRoute(t, r, req, nil, []byte("C"), nil)
+		checkRoute(t, r, req, "/z/b", nil, []byte("C"), nil)
 	}
 
 }

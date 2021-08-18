@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"net/url"
 	"reflect"
+	"sort"
 	"strings"
 
 	pathutil "path"
@@ -27,6 +28,7 @@ func (a Attributes) Copy() Attributes {
 type Context struct {
 	Vars  path.Vars
 	Attrs Attributes
+	Path  string
 }
 
 // Matching state
@@ -42,10 +44,18 @@ type Middleware interface {
 	Wrap(Handler) Handler
 }
 
+// A matched route
+type Match struct {
+	Method string
+	Path   string
+	Params url.Values
+	Vars   path.Vars
+}
+
 // An individual route
 type Route struct {
 	handler Handler
-	methods []string
+	methods map[string]struct{}
 	paths   []path.Path
 	params  url.Values
 	attrs   Attributes
@@ -53,7 +63,12 @@ type Route struct {
 
 // Set methods
 func (r *Route) Methods(m ...string) *Route {
-	r.methods = m
+	if r.methods == nil {
+		r.methods = make(map[string]struct{})
+	}
+	for _, e := range m {
+		r.methods[strings.ToLower(e)] = struct{}{}
+	}
 	return r
 }
 
@@ -96,24 +111,29 @@ func (r *Route) Attr(k string, v interface{}) *Route {
 	return r
 }
 
-// Matches or not
-func (r Route) Matches(req *Request, state *matchState) (bool, map[string]string) {
-	if len(r.methods) > 0 {
-		if !contains(r.methods, req.Method) {
-			return false, nil
+// Matches the provided request or not; returns the details of
+// the match if successful, otherwise nil.
+func (r Route) Matches(req *Request, state *matchState) *Match {
+	if r.methods != nil { // if no methods specified, all methods match
+		if _, ok := r.methods[strings.ToLower(req.Method)]; !ok {
+			return nil
 		}
 	}
 
-	var match bool
-	var vars map[string]string
+	var (
+		match bool
+		tmpl  string
+		vars  map[string]string
+	)
 	for _, e := range r.paths {
 		match, vars = e.Matches(req.URL.Path)
 		if match {
+			tmpl = e.String()
 			break
 		}
 	}
 	if !match {
-		return false, nil
+		return nil
 	}
 
 	if len(r.params) > 0 {
@@ -123,15 +143,20 @@ func (r Route) Matches(req *Request, state *matchState) (bool, map[string]string
 		for k, v := range r.params {
 			c, ok := state.Query[k]
 			if !ok {
-				return false, nil
+				return nil
 			}
 			if !reflect.DeepEqual(v, c) {
-				return false, nil
+				return nil
 			}
 		}
 	}
 
-	return match, vars
+	return &Match{
+		Method: req.Method,
+		Path:   tmpl,
+		Params: r.params,
+		Vars:   vars,
+	}
 }
 
 // Handle the request
@@ -142,14 +167,7 @@ func (r *Route) Handle(req *Request, context Context) (*Response, error) {
 // Describe this route
 func (r *Route) String() string {
 	b := strings.Builder{}
-	switch len(r.methods) {
-	case 0:
-		b.WriteString("*")
-	case 1:
-		b.WriteString(r.methods[0])
-	default:
-		b.WriteString("{" + strings.Join(r.methods, ", ") + "}")
-	}
+	b.WriteString(entryList(r.methods))
 	b.WriteString(" ")
 	switch len(r.paths) {
 	case 0:
@@ -177,7 +195,7 @@ func (r *Route) String() string {
 type Router interface {
 	Use(m Middleware)
 	Add(p string, f Handler) *Route
-	Find(r *Request) (*Route, path.Vars, error)
+	Find(r *Request) (*Route, *Match, error)
 	Handle(r *Request) (*Response, error)
 	Subrouter(p string) Router
 	Routes() []*Route
@@ -225,12 +243,12 @@ func (r *router) Add(p string, f Handler) *Route {
 }
 
 // Find a route for the request, if we have one
-func (r router) Find(req *Request) (*Route, path.Vars, error) {
+func (r router) Find(req *Request) (*Route, *Match, error) {
 	state := &matchState{}
 	for _, e := range r.routes {
-		m, vars := e.Matches(req, state)
-		if m {
-			return e, vars, nil
+		match := e.Matches(req, state)
+		if match != nil {
+			return e, match, nil
 		}
 	}
 	return nil, nil, nil
@@ -238,16 +256,23 @@ func (r router) Find(req *Request) (*Route, path.Vars, error) {
 
 // Handle the request
 func (r router) Handle(req *Request) (*Response, error) {
-	h, vars, err := r.Find(req)
+	h, match, err := r.Find(req)
 	if err != nil {
 		return NewResponse(http.StatusInternalServerError).SetString("text/plain", fmt.Sprintf("Could not find route: %v", err))
 	} else if h == nil {
 		return NewResponse(http.StatusNotFound).SetString("text/plain", "Not found")
 	}
-	if vars == nil {
+	var vars path.Vars
+	if match.Vars != nil {
+		vars = match.Vars
+	} else {
 		vars = make(path.Vars)
 	}
-	return h.Handle(req, Context{vars, h.attrs.Copy()})
+	return h.Handle(req, Context{
+		Vars:  vars,
+		Attrs: h.attrs.Copy(),
+		Path:  match.Path,
+	})
 }
 
 type subrouter struct {
@@ -276,7 +301,7 @@ func (r *subrouter) Add(p string, f Handler) *Route {
 }
 
 // Find a route for the request, if we have one
-func (r subrouter) Find(req *Request) (*Route, path.Vars, error) {
+func (r subrouter) Find(req *Request) (*Route, *Match, error) {
 	return r.parent.Find(req)
 }
 
@@ -285,12 +310,20 @@ func (r subrouter) Handle(req *Request) (*Response, error) {
 	return r.parent.Handle(req)
 }
 
-// Is a string in the set
-func contains(a []string, s string) bool {
-	for _, e := range a {
-		if strings.EqualFold(e, s) {
-			return true
-		}
+// List of set entries
+func entryList(m map[string]struct{}) string {
+	if len(m) == 0 {
+		return "*"
 	}
-	return false
+	n := make([]string, 0, len(m))
+	for k, _ := range m {
+		n = append(n, k)
+	}
+	switch len(n) {
+	case 1:
+		return n[0]
+	default:
+		sort.Strings(n)
+		return "{" + strings.Join(n, ", ") + "}"
+	}
 }
