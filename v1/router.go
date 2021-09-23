@@ -44,6 +44,13 @@ type Middleware interface {
 	Wrap(Handler) Handler
 }
 
+// Middleware function wrapper
+type MiddlewareFunc func(Handler) Handler
+
+func (m MiddlewareFunc) Wrap(h Handler) Handler {
+	return m(h)
+}
+
 // A matched route
 type Match struct {
 	Method string
