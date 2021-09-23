@@ -259,3 +259,34 @@ func TestRouteAttrs(t *testing.T) {
 	}
 
 }
+
+func TestMiddlewareContext(t *testing.T) {
+	var req *Request
+	var err error
+
+	failed := fmt.Errorf("This request has failed. Sorry.")
+
+	handlerA := func(_ *Request, cxt Context) (*Response, error) {
+		return nil, failed
+	}
+
+	middleB := func(h Handler) Handler {
+		return func(req *Request, cxt Context) (*Response, error) {
+			match := MatchFromContext(req.Context())
+			if assert.NotNil(t, match) {
+				assert.Equal(t, match.Path, cxt.Path)
+			}
+			return h(req, cxt)
+		}
+	}
+
+	r := New()
+	r.Use(MiddlewareFunc(middleB))
+	r.Add("/a", handlerA).Methods("GET").Attr("key", "val")
+
+	req, err = NewRequest("GET", "/a", nil)
+	if assert.Nil(t, err, fmt.Sprint(err)) {
+		_, err := r.Handle(req)
+		assert.Equal(t, err, failed)
+	}
+}

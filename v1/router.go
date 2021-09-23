@@ -275,11 +275,14 @@ func (r router) Handle(req *Request) (*Response, error) {
 	} else {
 		vars = make(path.Vars)
 	}
-	return h.Handle(req, Context{
-		Vars:  vars,
-		Attrs: h.attrs.Copy(),
-		Path:  match.Path,
-	})
+	return h.Handle(
+		(*Request)((*http.Request)(req).WithContext(newMatchContext(req.Context(), match))),
+		Context{
+			Vars:  vars,
+			Attrs: h.attrs.Copy(),
+			Path:  match.Path,
+		},
+	)
 }
 
 type subrouter struct {
