@@ -204,6 +204,7 @@ type Router interface {
 	Add(p string, f Handler) *Route
 	Find(r *Request) (*Route, *Match, error)
 	Handle(r *Request) (*Response, error)
+	HandleMatch(r *Request, t *Route, m *Match) (*Response, error)
 	Subrouter(p string) Router
 	Routes() []*Route
 }
@@ -325,6 +326,11 @@ func (r subrouter) Find(req *Request) (*Route, *Match, error) {
 // Handle the request
 func (r subrouter) Handle(req *Request) (*Response, error) {
 	return r.parent.Handle(req)
+}
+
+// Handle the request
+func (r subrouter) HandleMatch(req *Request, route *Route, match *Match) (*Response, error) {
+	return r.parent.HandleMatch(req, route, match)
 }
 
 // List of set entries
