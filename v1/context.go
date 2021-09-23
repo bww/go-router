@@ -6,7 +6,7 @@ import (
 
 const matchKey = "github.com/bww/go-router.Match"
 
-func newMatchContext(cxt context.Context, match *Match) context.Context {
+func NewMatchContext(cxt context.Context, match *Match) context.Context {
 	return context.WithValue(cxt, matchKey, match)
 }
 
