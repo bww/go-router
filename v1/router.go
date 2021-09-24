@@ -167,8 +167,23 @@ func (r Route) Matches(req *Request, state *matchState) *Match {
 }
 
 // Handle the request
-func (r *Route) Handle(req *Request, context Context) (*Response, error) {
-	return r.handler(req, context)
+func (r *Route) Handle(req *Request, cxt Context) (*Response, error) {
+	return r.handler(req, cxt)
+}
+
+// Obtain a context for this route and the provided match
+func (r *Route) Context(match *Match) Context {
+	var vars path.Vars
+	if match.Vars != nil {
+		vars = match.Vars
+	} else {
+		vars = make(path.Vars)
+	}
+	return Context{
+		Vars:  vars,
+		Attrs: r.attrs.Copy(),
+		Path:  match.Path,
+	}
 }
 
 // Describe this route
@@ -204,7 +219,6 @@ type Router interface {
 	Add(p string, f Handler) *Route
 	Find(r *Request) (*Route, *Match, error)
 	Handle(r *Request) (*Response, error)
-	HandleMatch(r *Request, t *Route, m *Match) (*Response, error)
 	Subrouter(p string) Router
 	Routes() []*Route
 }
@@ -270,13 +284,6 @@ func (r router) Handle(req *Request) (*Response, error) {
 	} else if route == nil {
 		return NewResponse(http.StatusNotFound).SetString("text/plain", "Not found")
 	}
-	return r.HandleMatch((*Request)((*http.Request)(req).WithContext(NewMatchContext(req.Context(), match))), route, match)
-}
-
-// Handle a route matched by Find(). Generally the Handle() method is preferable.
-// This method is made available for specialized use cases that need greater control
-// over the parameters.
-func (r router) HandleMatch(req *Request, route *Route, match *Match) (*Response, error) {
 	var vars path.Vars
 	if match.Vars != nil {
 		vars = match.Vars
@@ -284,7 +291,7 @@ func (r router) HandleMatch(req *Request, route *Route, match *Match) (*Response
 		vars = make(path.Vars)
 	}
 	return route.Handle(
-		req,
+		(*Request)((*http.Request)(req).WithContext(NewMatchContext(req.Context(), match))),
 		Context{
 			Vars:  vars,
 			Attrs: route.attrs.Copy(),
@@ -326,11 +333,6 @@ func (r subrouter) Find(req *Request) (*Route, *Match, error) {
 // Handle the request
 func (r subrouter) Handle(req *Request) (*Response, error) {
 	return r.parent.Handle(req)
-}
-
-// Handle the request
-func (r subrouter) HandleMatch(req *Request, route *Route, match *Match) (*Response, error) {
-	return r.parent.HandleMatch(req, route, match)
 }
 
 // List of set entries
