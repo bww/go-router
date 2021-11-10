@@ -39,6 +39,9 @@ type matchState struct {
 // Route handler
 type Handler func(*Request, Context) (*Response, error)
 
+// Candidate route matcher
+type Matcher func(*Request, Route) bool
+
 // Middleware provides functionality to wrap a handler producing another handler
 type Middleware interface {
 	Wrap(Handler) Handler
@@ -120,7 +123,7 @@ func (r *Route) Attr(k string, v interface{}) *Route {
 
 // Matches the provided request or not; returns the details of
 // the match if successful, otherwise nil.
-func (r Route) Matches(req *Request, state *matchState) *Match {
+func (r Route) Matches(req *Request, check Matcher, state *matchState) *Match {
 	if r.methods != nil { // if no methods specified, all methods match
 		if _, ok := r.methods[strings.ToLower(req.Method)]; !ok {
 			return nil
@@ -155,6 +158,12 @@ func (r Route) Matches(req *Request, state *matchState) *Match {
 			if !reflect.DeepEqual(v, c) {
 				return nil
 			}
+		}
+	}
+
+	if check != nil {
+		if !check(req, r) {
+			return nil
 		}
 	}
 
@@ -218,6 +227,7 @@ type Router interface {
 	Use(m Middleware)
 	Add(p string, f Handler) *Route
 	Find(r *Request) (*Route, *Match, error)
+	FindFunc(r *Request, m Matcher) (*Route, *Match, error)
 	Handle(r *Request) (*Response, error)
 	Subrouter(p string) Router
 	Routes() []*Route
@@ -266,9 +276,14 @@ func (r *router) Add(p string, f Handler) *Route {
 
 // Find a route for the request, if we have one
 func (r router) Find(req *Request) (*Route, *Match, error) {
+	return r.FindFunc(req, nil)
+}
+
+// Find a route for the request, if we have one
+func (r router) FindFunc(req *Request, check Matcher) (*Route, *Match, error) {
 	state := &matchState{}
 	for _, e := range r.routes {
-		match := e.Matches(req, state)
+		match := e.Matches(req, check, state)
 		if match != nil {
 			return e, match, nil
 		}
@@ -328,6 +343,11 @@ func (r *subrouter) Add(p string, f Handler) *Route {
 // Find a route for the request, if we have one
 func (r subrouter) Find(req *Request) (*Route, *Match, error) {
 	return r.parent.Find(req)
+}
+
+// Find a route for the request, if we have one
+func (r subrouter) FindFunc(req *Request, check Matcher) (*Route, *Match, error) {
+	return r.parent.FindFunc(req, check)
 }
 
 // Handle the request

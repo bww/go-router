@@ -1,6 +1,7 @@
 package router
 
 import (
+	"errors"
 	"fmt"
 	"math/rand"
 	"net/http"
@@ -25,11 +26,19 @@ func randomString(n int) string {
 	return string(v)
 }
 
+var err404 = errors.New("404") // special no-route synthentic error
+
 func checkRoute(t *testing.T, r Router, req *Request, path string, capture path.Vars, expect []byte, xerr error) {
-	x, match, err := r.Find(req)
-	if xerr != nil {
+	checkRouteFunc(t, r, req, path, capture, nil, expect, xerr)
+}
+
+func checkRouteFunc(t *testing.T, r Router, req *Request, path string, capture path.Vars, check Matcher, expect []byte, xerr error) {
+	x, match, err := r.FindFunc(req, check)
+	if xerr == err404 {
+		assert.Nil(t, err)
+		assert.Nil(t, x)
+	} else if xerr != nil {
 		assert.Equal(t, xerr, err)
-		return
 	} else if assert.Nil(t, err, fmt.Sprint(err)) {
 		if assert.NotNil(t, x) {
 			r, _ := x.handler(nil, Context{})
@@ -191,6 +200,22 @@ func TestRoutes(t *testing.T) {
 	req, err = NewRequest("GET", "/z/b?foo=bar&foo=car&zap=pap", nil)
 	if assert.Nil(t, err, fmt.Sprint(err)) {
 		checkRoute(t, r, req, "/z/b", nil, []byte("C"), nil)
+	}
+
+	// match with function
+	check := func(req *Request, route Route) bool {
+		return req.Header.Get("Check-Header") == "true"
+	}
+
+	req, err = NewRequest("GET", "/a", nil)
+	req.Header.Set("Check-Header", "true")
+	if assert.Nil(t, err, fmt.Sprint(err)) {
+		checkRouteFunc(t, r, req, "/a", nil, check, []byte("A"), nil)
+	}
+	req, err = NewRequest("GET", "/b", nil)
+	req.Header.Set("Check-Header", "false")
+	if assert.Nil(t, err, fmt.Sprint(err)) {
+		checkRouteFunc(t, r, req, "/b", nil, check, nil, err404)
 	}
 
 }
