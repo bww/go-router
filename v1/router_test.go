@@ -65,6 +65,9 @@ func TestRoutes(t *testing.T) {
 	funcF := func(*Request, Context) (*Response, error) {
 		return NewResponse(http.StatusOK).SetString("text/plain", "F")
 	}
+	funcG := func(*Request, Context) (*Response, error) {
+		return NewResponse(http.StatusOK).SetString("text/plain", "G")
+	}
 
 	r := New()
 	r.Add("/a", funcA).Methods("GET")
@@ -72,7 +75,10 @@ func TestRoutes(t *testing.T) {
 	r.Add("/a", funcC)
 
 	r.Add("/b", funcF).Func(func(req *Request, route Route) bool {
-		return req.Header.Get("Check-Header") == "true"
+		return req.Header.Get("Check-Header") == "F"
+	})
+	r.Add("/b", funcG).Func(func(req *Request, route Route) bool {
+		return req.Header.Get("Check-Header") == "G"
 	})
 	r.Add("/b", funcD)
 	r.Add("/{var}", funcE)
@@ -204,9 +210,14 @@ func TestRoutes(t *testing.T) {
 	// match with function
 
 	req, err = NewRequest("GET", "/b", nil)
-	req.Header.Set("Check-Header", "true") // matches F instead of B because this header is set
+	req.Header.Set("Check-Header", "F") // matches F instead of D because of this header
 	if assert.Nil(t, err, fmt.Sprint(err)) {
 		checkRoute(t, r, req, "/b", nil, []byte("F"), nil)
+	}
+	req, err = NewRequest("GET", "/b", nil)
+	req.Header.Set("Check-Header", "G") // matches G instead of D or F because of this header
+	if assert.Nil(t, err, fmt.Sprint(err)) {
+		checkRoute(t, r, req, "/b", nil, []byte("G"), nil)
 	}
 
 }
