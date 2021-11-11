@@ -114,7 +114,7 @@ func (r *Route) Params(p url.Values) *Route {
 }
 
 // Match via a user-provided function
-func (r *Route) Func(m Matcher) *Route {
+func (r *Route) Match(m Matcher) *Route {
 	r.matcher = m
 	return r
 }
