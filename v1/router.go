@@ -39,6 +39,9 @@ type matchState struct {
 // Route handler
 type Handler func(*Request, Context) (*Response, error)
 
+// Candidate route matcher
+type Matcher func(*Request, Route) bool
+
 // Middleware provides functionality to wrap a handler producing another handler
 type Middleware interface {
 	Wrap(Handler) Handler
@@ -66,6 +69,7 @@ type Route struct {
 	paths   []path.Path
 	params  url.Values
 	attrs   Attributes
+	matcher Matcher
 }
 
 // Set methods
@@ -106,6 +110,12 @@ func (r *Route) Params(p url.Values) *Route {
 	for k, v := range p {
 		r.params[k] = v
 	}
+	return r
+}
+
+// Match via a user-provided function
+func (r *Route) Match(m Matcher) *Route {
+	r.matcher = m
 	return r
 }
 
@@ -155,6 +165,12 @@ func (r Route) Matches(req *Request, state *matchState) *Match {
 			if !reflect.DeepEqual(v, c) {
 				return nil
 			}
+		}
+	}
+
+	if r.matcher != nil {
+		if !r.matcher(req, r) {
+			return nil
 		}
 	}
 
@@ -259,7 +275,7 @@ func (r *router) Add(p string, f Handler) *Route {
 	for _, e := range r.middleware {
 		f = e.Wrap(f)
 	}
-	v := &Route{f, nil, []path.Path{path.Parse(p)}, nil, nil}
+	v := &Route{f, nil, []path.Path{path.Parse(p)}, nil, nil, nil}
 	r.routes = append(r.routes, v)
 	return v
 }
