@@ -25,11 +25,11 @@ func (r *Request) Context() context.Context {
 }
 
 // OriginAddr tries to identify the best address possible representing the
-// origination of the request given the information available.
+// origination of the request.
 //
 // When available it prefers the `X-Forwarded-For` header, which is widely
 // used by middleware infrastructure for this purpose. Failing that, the
-// http.Request.RemotAddr is used with the port portion of te value removed.
+// http.Request.RemotAddr is used with the port portion of the value removed.
 //
 // If none of the above is available and empty string is returned.
 func (r *Request) OriginAddr() string {
