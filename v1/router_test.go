@@ -99,7 +99,7 @@ func TestRoutes(t *testing.T) {
 	s3.Add("/b", funcC).Methods("GET").Params(url.Values{"foo": {"bar", "car"}, "zap": {"pap"}})
 
 	for _, e := range r.Routes() {
-		fmt.Println("> ", e)
+		fmt.Println("> ", e.Describe(true))
 	}
 
 	// simple matching
