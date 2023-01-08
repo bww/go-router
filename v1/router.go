@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"net/url"
 	"reflect"
+	"runtime"
 	"sort"
 	"strings"
 
@@ -202,8 +203,12 @@ func (r *Route) Context(match *Match) Context {
 	}
 }
 
-// Describe this route
 func (r *Route) String() string {
+	return r.Describe(false)
+}
+
+// Describe this route
+func (r *Route) Describe(verbose bool) string {
 	b := strings.Builder{}
 	b.WriteString(entryList(r.methods))
 	b.WriteString(" ")
@@ -225,6 +230,12 @@ func (r *Route) String() string {
 	if len(r.params) > 0 {
 		b.WriteString(" ?")
 		b.WriteString(r.params.Encode())
+	}
+	if verbose {
+		p := reflect.ValueOf(r.handler).Pointer()
+		f := runtime.FuncForPC(p)
+		file, line := f.FileLine(p)
+		b.WriteString(fmt.Sprintf(" (%s @ %s:%d)", f.Name(), file, line))
 	}
 	return b.String()
 }
