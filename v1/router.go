@@ -37,23 +37,8 @@ type matchState struct {
 	Query url.Values
 }
 
-// Route handler
-type Handler func(*Request, Context) (*Response, error)
-
 // Candidate route matcher
 type Matcher func(*Request, Route) bool
-
-// Middleware provides functionality to wrap a handler producing another handler
-type Middleware interface {
-	Wrap(Handler) Handler
-}
-
-// Middleware function wrapper
-type MiddlewareFunc func(Handler) Handler
-
-func (m MiddlewareFunc) Wrap(h Handler) Handler {
-	return m(h)
-}
 
 // A matched route
 type Match struct {
@@ -66,6 +51,7 @@ type Match struct {
 // An individual route
 type Route struct {
 	handler Handler
+	middle  []Middle
 	methods map[string]struct{}
 	paths   []path.Path
 	params  url.Values
@@ -73,7 +59,16 @@ type Route struct {
 	matcher Matcher
 }
 
-// Set methods
+// Use applies middleware to a route. Route-level middleware is applied in the
+// order it is declared AFTER router-level middleware.
+func (r *Route) Use(m ...Middle) *Route {
+	for _, e := range m {
+		r.handler = e.Wrap(r.handler)
+	}
+	return r
+}
+
+// Method sets the methods matched by a route
 func (r *Route) Methods(m ...string) *Route {
 	if r.methods == nil {
 		r.methods = make(map[string]struct{})
@@ -84,7 +79,7 @@ func (r *Route) Methods(m ...string) *Route {
 	return r
 }
 
-// Add additional paths
+// Paths sets the paths matched by a route
 func (r *Route) Paths(s ...string) *Route {
 	p := make([]path.Path, len(s))
 	for i, e := range s {
@@ -94,7 +89,7 @@ func (r *Route) Paths(s ...string) *Route {
 	return r
 }
 
-// Match a single parameter
+// Param matches a single parameter
 func (r *Route) Param(k, v string) *Route {
 	if r.params == nil {
 		r.params = make(url.Values)
@@ -103,7 +98,7 @@ func (r *Route) Param(k, v string) *Route {
 	return r
 }
 
-// Match a set of parameters
+// Params matches a set of parameter
 func (r *Route) Params(p url.Values) *Route {
 	if r.params == nil {
 		r.params = make(url.Values)
@@ -242,7 +237,7 @@ func (r *Route) Describe(verbose bool) string {
 
 // Dead simple router
 type Router interface {
-	Use(m Middleware)
+	Use(m Middle)
 	Add(p string, f Handler) *Route
 	Find(r *Request) (*Route, *Match, error)
 	Handle(r *Request) (*Response, error)
@@ -251,8 +246,8 @@ type Router interface {
 }
 
 type router struct {
-	routes     []*Route
-	middleware []Middleware
+	routes []*Route
+	middle []Middle
 }
 
 func New() Router {
@@ -271,22 +266,28 @@ func (r *router) Subrouter(p string) Router {
 	return &subrouter{r, p}
 }
 
-// Add middleware which is wraps every route that is added AFTER the
-// middeware is defined. Routes added before a middleware will not
-// be affected.
+// Add middleware which wraps every route that is added AFTER the middeware is
+// defined. Routes added before a middleware will not be affected. Router-
+// level middleware is always applied BEFORE any route-level middleware is
+// applied.
 //
-// Routes are wrapped by middleware in the order the middleware is
-// added to the router via this method.
-func (r *router) Use(m Middleware) {
-	r.middleware = append(r.middleware, m)
+// Routes are wrapped by middleware in the order the middleware is added to the
+// router via this method.
+func (r *router) Use(m Middle) {
+	r.middle = append(r.middle, m)
 }
 
-// Add a route
+// Add a route. The provided handler is the canonical, root handler. If
+// middleware is applied to the route, this handler is invoked at the end of
+// the chain (or, more accurately, the most deeply nested element).
 func (r *router) Add(p string, f Handler) *Route {
-	for _, e := range r.middleware {
+	for _, e := range r.middle {
 		f = e.Wrap(f)
 	}
-	v := &Route{f, nil, []path.Path{path.Parse(p)}, nil, nil, nil}
+	v := &Route{
+		handler: f,
+		paths:   []path.Path{path.Parse(p)},
+	}
 	r.routes = append(r.routes, v)
 	return v
 }
@@ -343,7 +344,7 @@ func (r *subrouter) Subrouter(p string) Router {
 }
 
 // Add middleware which wraps every route AFTER the middleware is added
-func (r *subrouter) Use(m Middleware) {
+func (r *subrouter) Use(m Middle) {
 	r.parent.Use(m)
 }
 

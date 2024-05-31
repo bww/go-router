@@ -5,6 +5,7 @@ import (
 	"math/rand"
 	"net/http"
 	"net/url"
+	"runtime"
 	"testing"
 	"time"
 
@@ -16,6 +17,22 @@ import (
 var randomChars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
 
 var seededRand *rand.Rand = rand.New(rand.NewSource(time.Now().UnixNano()))
+
+func tracef(f string, a ...interface{}) {
+	_trace(fmt.Sprintf(f, a...))
+}
+
+func trace(msgs ...interface{}) {
+	_trace(fmt.Sprint(msgs...))
+}
+
+func _trace(msg string) {
+	pc := make([]uintptr, 10) // at least 1 entry needed
+	runtime.Callers(3, pc)
+	f := runtime.FuncForPC(pc[0])
+	file, line := f.FileLine(pc[0])
+	fmt.Printf("%s:%d %s: %s\n", file, line, f.Name(), msg)
+}
 
 func randomString(n int) string {
 	v := make([]byte, n)
@@ -30,11 +47,11 @@ func checkRoute(t *testing.T, r Router, req *Request, path string, capture path.
 	if xerr != nil {
 		assert.Equal(t, xerr, err)
 		return
-	} else if assert.Nil(t, err, fmt.Sprint(err)) {
+	} else if assert.NoError(t, err) {
 		if assert.NotNil(t, x) {
-			r, _ := x.handler(nil, Context{})
+			r, _ := x.handler((*Request)(req), Context{})
 			entity, err := r.ReadEntity()
-			if assert.Nil(t, err, fmt.Sprint(err)) {
+			if assert.NoError(t, err) {
 				assert.Equal(t, expect, entity)
 				assert.Equal(t, path, match.Path)
 				assert.Equal(t, capture, match.Vars)
@@ -287,33 +304,57 @@ func TestRouteAttrs(t *testing.T) {
 
 }
 
-func TestMiddlewareContext(t *testing.T) {
+func TestMiddleware(t *testing.T) {
 	var req *Request
 	var err error
 
 	failed := fmt.Errorf("This request has failed. Sorry.")
 
 	handlerA := func(_ *Request, cxt Context) (*Response, error) {
+		match := MatchFromContext(req.Context())
+		fmt.Println(">>>>>>>>>>>>>>>>>>> WHAT?")
+		trace(match.Path, cxt.Path)
+		fmt.Println(">>>>>>>>>>>>>>>>>>> WHAT?")
 		return nil, failed
 	}
 
 	middleB := func(h Handler) Handler {
 		return func(req *Request, cxt Context) (*Response, error) {
 			match := MatchFromContext(req.Context())
+			trace(match.Path, cxt.Path)
 			if assert.NotNil(t, match) {
 				assert.Equal(t, match.Path, cxt.Path)
 			}
+			trace(match.Path, cxt.Path)
 			return h(req, cxt)
 		}
 	}
 
+	middleC := func(h Handler) Handler {
+		return func(req *Request, cxt Context) (*Response, error) {
+			match := MatchFromContext(req.Context())
+			trace(match.Path, cxt.Path)
+			rsp, err := h(req, cxt)
+			if err != nil {
+				return nil, fmt.Errorf("Wrapped error: %w", err)
+			} else {
+				return rsp, nil
+			}
+		}
+	}
+
 	r := New()
-	r.Use(MiddlewareFunc(middleB))
+	r.Use(MiddleFunc(middleB))
 	r.Add("/a", handlerA).Methods("GET").Attr("key", "val")
+	r.Add("/b", handlerA).Methods("GET").Attr("key", "val").Use(MiddleFunc(middleC))
 
 	req, err = NewRequest("GET", "/a", nil)
-	if assert.Nil(t, err, fmt.Sprint(err)) {
+	if assert.NoError(t, err) {
 		_, err := r.Handle(req)
 		assert.Equal(t, err, failed)
+	}
+	req, err = NewRequest("GET", "/b", nil)
+	if assert.NoError(t, err) {
+		checkRoute(t, r, req, "/b", nil, []byte(fmt.Sprintf("Error: %v", failed)), nil)
 	}
 }
