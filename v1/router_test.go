@@ -2,6 +2,7 @@ package router
 
 import (
 	"fmt"
+	"io"
 	"math/rand"
 	"net/http"
 	"net/url"
@@ -10,6 +11,7 @@ import (
 	"time"
 
 	"github.com/bww/go-router/v1/path"
+	"github.com/bww/go-util/v1/errors"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -28,10 +30,18 @@ func trace(msgs ...interface{}) {
 
 func _trace(msg string) {
 	pc := make([]uintptr, 10) // at least 1 entry needed
-	runtime.Callers(3, pc)
-	f := runtime.FuncForPC(pc[0])
-	file, line := f.FileLine(pc[0])
-	fmt.Printf("%s:%d %s: %s\n", file, line, f.Name(), msg)
+	n := runtime.Callers(3, pc)
+	fs := runtime.CallersFrames(pc[:n])
+	var f runtime.Frame
+	more := true
+	for i := 0; more; i++ {
+		f, more = fs.Next()
+		if i == 0 {
+			fmt.Printf("%s:%d %s: %s\n", f.File, f.Line, f.Function, msg)
+		} else {
+			fmt.Printf("    #%d %s:%d %s\n", i, f.File, f.Line, f.Function)
+		}
+	}
 }
 
 func randomString(n int) string {
@@ -46,7 +56,6 @@ func checkRoute(t *testing.T, r Router, req *Request, path string, capture path.
 	x, match, err := r.Find(req)
 	if xerr != nil {
 		assert.Equal(t, xerr, err)
-		return
 	} else if assert.NoError(t, err) {
 		if assert.NotNil(t, x) {
 			r, _ := x.handler((*Request)(req), Context{})
@@ -57,6 +66,16 @@ func checkRoute(t *testing.T, r Router, req *Request, path string, capture path.
 				assert.Equal(t, capture, match.Vars)
 			}
 		}
+	}
+}
+
+func handleRoute(t *testing.T, r Router, req *Request, status int, expect []byte, xerr error) {
+	rsp, err := r.Handle(req)
+	if xerr != nil {
+		assert.Equal(t, xerr, err)
+	} else if assert.NoError(t, err) && assert.NotNil(t, rsp) {
+		assert.Equal(t, status, rsp.Status)
+		assert.Equal(t, expect, errors.Must(io.ReadAll(rsp.Entity)))
 	}
 }
 
@@ -308,38 +327,31 @@ func TestMiddleware(t *testing.T) {
 	var req *Request
 	var err error
 
-	failed := fmt.Errorf("This request has failed. Sorry.")
-
-	handlerA := func(_ *Request, cxt Context) (*Response, error) {
-		match := MatchFromContext(req.Context())
-		fmt.Println(">>>>>>>>>>>>>>>>>>> WHAT?")
-		trace(match.Path, cxt.Path)
-		fmt.Println(">>>>>>>>>>>>>>>>>>> WHAT?")
-		return nil, failed
+	handlerA := func(req *Request, cxt Context) (*Response, error) {
+		return NewResponse(http.StatusOK).SetString("text/plain", cxt.Path)
 	}
 
 	middleB := func(h Handler) Handler {
 		return func(req *Request, cxt Context) (*Response, error) {
 			match := MatchFromContext(req.Context())
-			trace(match.Path, cxt.Path)
 			if assert.NotNil(t, match) {
 				assert.Equal(t, match.Path, cxt.Path)
 			}
-			trace(match.Path, cxt.Path)
-			return h(req, cxt)
+			rsp, err := h(req, cxt)
+			return rsp, err
 		}
 	}
 
 	middleC := func(h Handler) Handler {
 		return func(req *Request, cxt Context) (*Response, error) {
-			match := MatchFromContext(req.Context())
-			trace(match.Path, cxt.Path)
 			rsp, err := h(req, cxt)
 			if err != nil {
-				return nil, fmt.Errorf("Wrapped error: %w", err)
-			} else {
-				return rsp, nil
+				return nil, err
 			}
+			return NewResponse(http.StatusOK).SetString("text/plain", fmt.Sprintf("%s: %v",
+				string(errors.Must(io.ReadAll(rsp.Entity))),
+				cxt.Attrs,
+			))
 		}
 	}
 
@@ -350,11 +362,10 @@ func TestMiddleware(t *testing.T) {
 
 	req, err = NewRequest("GET", "/a", nil)
 	if assert.NoError(t, err) {
-		_, err := r.Handle(req)
-		assert.Equal(t, err, failed)
+		handleRoute(t, r, req, http.StatusOK, []byte(req.URL.Path), nil)
 	}
 	req, err = NewRequest("GET", "/b", nil)
 	if assert.NoError(t, err) {
-		checkRoute(t, r, req, "/b", nil, []byte(fmt.Sprintf("Error: %v", failed)), nil)
+		handleRoute(t, r, req, http.StatusOK, []byte(fmt.Sprintf("%s: key=val", req.URL.Path)), nil)
 	}
 }

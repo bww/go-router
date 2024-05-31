@@ -17,6 +17,19 @@ import (
 // Request attributes
 type Attributes map[string]interface{}
 
+func (a Attributes) String() string {
+	sb := &strings.Builder{}
+	for k, v := range a {
+		if sb.Len() > 0 {
+			sb.WriteString(" ")
+		}
+		sb.WriteString(k)
+		sb.WriteString("=")
+		sb.WriteString(fmt.Sprint(v))
+	}
+	return sb.String()
+}
+
 func (a Attributes) Copy() Attributes {
 	c := make(Attributes)
 	for k, v := range a {
@@ -51,7 +64,6 @@ type Match struct {
 // An individual route
 type Route struct {
 	handler Handler
-	middle  []Middle
 	methods map[string]struct{}
 	paths   []path.Path
 	params  url.Values
