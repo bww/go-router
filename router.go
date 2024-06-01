@@ -14,6 +14,9 @@ import (
 	"github.com/bww/go-router/v2/path"
 )
 
+// A route option
+type RouteOption func(*Route) *Route
+
 // Request attributes
 type Attributes map[string]interface{}
 
@@ -69,6 +72,15 @@ type Route struct {
 	params  url.Values
 	attrs   Attributes
 	matcher Matcher
+}
+
+// With allows the caller to functionally configure the route by providing
+// options that operate on the receiver
+func (r *Route) With(opts ...RouteOption) *Route {
+	for _, opt := range opts {
+		r = opt(r)
+	}
+	return r
 }
 
 // Use applies middleware to a route. Route-level middleware is applied in the
@@ -133,6 +145,17 @@ func (r *Route) Attr(k string, v interface{}) *Route {
 		r.attrs = make(Attributes)
 	}
 	r.attrs[k] = v
+	return r
+}
+
+// Set attributes in bulk
+func (r *Route) Attrs(attrs map[string]interface{}) *Route {
+	if r.attrs == nil {
+		r.attrs = make(Attributes)
+	}
+	for k, v := range attrs {
+		r.attrs[k] = v
+	}
 	return r
 }
 
