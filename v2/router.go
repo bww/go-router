@@ -11,7 +11,7 @@ import (
 
 	pathutil "path"
 
-	"github.com/bww/go-router/v1/path"
+	"github.com/bww/go-router/v2/path"
 )
 
 // Request attributes

@@ -5,7 +5,7 @@ import (
 	"io/ioutil"
 	"net/http"
 
-	"github.com/bww/go-router/v1/entity"
+	"github.com/bww/go-router/v2/entity"
 )
 
 type Response struct {

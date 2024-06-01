@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/bww/go-router/v1/path"
+	"github.com/bww/go-router/v2/path"
 	"github.com/bww/go-util/v1/errors"
 
 	"github.com/stretchr/testify/assert"
