@@ -2,13 +2,16 @@ package router
 
 import (
 	"fmt"
+	"io"
 	"math/rand"
 	"net/http"
 	"net/url"
+	"runtime"
 	"testing"
 	"time"
 
-	"github.com/bww/go-router/v1/path"
+	"github.com/bww/go-router/v2/path"
+	"github.com/bww/go-util/v1/errors"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -16,6 +19,30 @@ import (
 var randomChars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
 
 var seededRand *rand.Rand = rand.New(rand.NewSource(time.Now().UnixNano()))
+
+func tracef(f string, a ...interface{}) {
+	_trace(fmt.Sprintf(f, a...))
+}
+
+func trace(msgs ...interface{}) {
+	_trace(fmt.Sprint(msgs...))
+}
+
+func _trace(msg string) {
+	pc := make([]uintptr, 10) // at least 1 entry needed
+	n := runtime.Callers(3, pc)
+	fs := runtime.CallersFrames(pc[:n])
+	var f runtime.Frame
+	more := true
+	for i := 0; more; i++ {
+		f, more = fs.Next()
+		if i == 0 {
+			fmt.Printf("%s:%d %s: %s\n", f.File, f.Line, f.Function, msg)
+		} else {
+			fmt.Printf("    #%d %s:%d %s\n", i, f.File, f.Line, f.Function)
+		}
+	}
+}
 
 func randomString(n int) string {
 	v := make([]byte, n)
@@ -29,17 +56,26 @@ func checkRoute(t *testing.T, r Router, req *Request, path string, capture path.
 	x, match, err := r.Find(req)
 	if xerr != nil {
 		assert.Equal(t, xerr, err)
-		return
-	} else if assert.Nil(t, err, fmt.Sprint(err)) {
+	} else if assert.NoError(t, err) {
 		if assert.NotNil(t, x) {
-			r, _ := x.handler(nil, Context{})
+			r, _ := x.handler((*Request)(req), Context{})
 			entity, err := r.ReadEntity()
-			if assert.Nil(t, err, fmt.Sprint(err)) {
+			if assert.NoError(t, err) {
 				assert.Equal(t, expect, entity)
 				assert.Equal(t, path, match.Path)
 				assert.Equal(t, capture, match.Vars)
 			}
 		}
+	}
+}
+
+func handleRoute(t *testing.T, r Router, req *Request, status int, expect []byte, xerr error) {
+	rsp, err := r.Handle(req)
+	if xerr != nil {
+		assert.Equal(t, xerr, err)
+	} else if assert.NoError(t, err) && assert.NotNil(t, rsp) {
+		assert.Equal(t, status, rsp.Status)
+		assert.Equal(t, expect, errors.Must(io.ReadAll(rsp.Entity)))
 	}
 }
 
@@ -287,14 +323,12 @@ func TestRouteAttrs(t *testing.T) {
 
 }
 
-func TestMiddlewareContext(t *testing.T) {
+func TestMiddleware(t *testing.T) {
 	var req *Request
 	var err error
 
-	failed := fmt.Errorf("This request has failed. Sorry.")
-
-	handlerA := func(_ *Request, cxt Context) (*Response, error) {
-		return nil, failed
+	handlerA := func(req *Request, cxt Context) (*Response, error) {
+		return NewResponse(http.StatusOK).SetString("text/plain", cxt.Path)
 	}
 
 	middleB := func(h Handler) Handler {
@@ -303,17 +337,35 @@ func TestMiddlewareContext(t *testing.T) {
 			if assert.NotNil(t, match) {
 				assert.Equal(t, match.Path, cxt.Path)
 			}
-			return h(req, cxt)
+			rsp, err := h(req, cxt)
+			return rsp, err
+		}
+	}
+
+	middleC := func(h Handler) Handler {
+		return func(req *Request, cxt Context) (*Response, error) {
+			rsp, err := h(req, cxt)
+			if err != nil {
+				return nil, err
+			}
+			return NewResponse(http.StatusOK).SetString("text/plain", fmt.Sprintf("%s: %v",
+				string(errors.Must(io.ReadAll(rsp.Entity))),
+				cxt.Attrs,
+			))
 		}
 	}
 
 	r := New()
-	r.Use(MiddlewareFunc(middleB))
+	r.Use(MiddleFunc(middleB))
 	r.Add("/a", handlerA).Methods("GET").Attr("key", "val")
+	r.Add("/b", handlerA).Methods("GET").Attr("key", "val").Use(MiddleFunc(middleC))
 
 	req, err = NewRequest("GET", "/a", nil)
-	if assert.Nil(t, err, fmt.Sprint(err)) {
-		_, err := r.Handle(req)
-		assert.Equal(t, err, failed)
+	if assert.NoError(t, err) {
+		handleRoute(t, r, req, http.StatusOK, []byte(req.URL.Path), nil)
+	}
+	req, err = NewRequest("GET", "/b", nil)
+	if assert.NoError(t, err) {
+		handleRoute(t, r, req, http.StatusOK, []byte(fmt.Sprintf("%s: key=val", req.URL.Path)), nil)
 	}
 }
