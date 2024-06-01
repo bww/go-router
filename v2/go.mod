@@ -1,6 +1,6 @@
 module github.com/bww/go-router/v2
 
-go 1.18
+go 1.22
 
 require (
 	github.com/bww/go-util v1.34.0
