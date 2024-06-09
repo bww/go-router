@@ -2,6 +2,7 @@ package router
 
 import (
 	"fmt"
+	"log/slog"
 	"net/http"
 	"net/url"
 	"reflect"
@@ -87,7 +88,11 @@ func (r *Route) With(opts ...RouteOption) *Route {
 // order it is declared AFTER router-level middleware.
 func (r *Route) Use(m ...Middle) *Route {
 	for _, e := range m {
-		r.handler = e.Wrap(r.handler)
+		if e != nil {
+			r.handler = e.Wrap(r.handler)
+		} else {
+			slog.With("route", r.Describe(false)).Warn("Ignoring nil middleware added to route")
+		}
 	}
 	return r
 }
@@ -309,7 +314,11 @@ func (r *router) Subrouter(p string) Router {
 // Routes are wrapped by middleware in the order the middleware is added to the
 // router via this method.
 func (r *router) Use(m Middle) {
-	r.middle = append(r.middle, m)
+	if m != nil {
+		r.middle = append(r.middle, m)
+	} else {
+		slog.Warn("Ignoring nil middleware added to router")
+	}
 }
 
 // Add a route. The provided handler is the canonical, root handler. If
