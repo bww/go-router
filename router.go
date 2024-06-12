@@ -18,6 +18,19 @@ import (
 // A route option
 type RouteOption func(*Route) *Route
 
+// A responder is anything that can be converted to a response.  Usually this
+// is something like an error or a static, default response at the end a chain
+// of processing.
+type Responder interface {
+	Response() *Response
+}
+
+type ResponderFunc func() *Response
+
+func (r ResponderFunc) Response() *Response {
+	return r()
+}
+
 // Request attributes
 type Attributes map[string]interface{}
 
