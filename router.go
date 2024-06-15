@@ -9,6 +9,7 @@ import (
 	"runtime"
 	"sort"
 	"strings"
+	"sync"
 
 	pathutil "path"
 
@@ -81,11 +82,42 @@ type Match struct {
 // An individual route
 type Route struct {
 	handler Handler
+	middle  []Middle
 	methods map[string]struct{}
 	paths   []path.Path
 	params  url.Values
 	attrs   Attributes
 	matcher Matcher
+	once    sync.Once
+}
+
+// Init finalizes a route and builds the final handler chain using the provided
+// router-level middleware. This operation is performed exactly once, usually
+// the first time a route is matched.
+//
+// The initializaiton must be initiated by the router, since it manages the
+// router-level middleware that must be included.
+func (r *Route) init(m []Middle) *Route {
+	r.once.Do(func() {
+		// wrap in route-level middleware first
+		for _, e := range r.middle {
+			if e != nil {
+				r.handler = e.Wrap(r.handler)
+			} else {
+				slog.With("route", r.Describe(false)).Warn("Ignoring nil middleware added to route")
+			}
+		}
+		// wrap in router-level middleware second
+		for _, e := range m {
+			if e != nil {
+				r.handler = e.Wrap(r.handler)
+			} else {
+				slog.With("route", r.Describe(false)).Warn("Ignoring nil middleware added to route")
+			}
+		}
+		// clear our router-level middleware after it's been added
+		r.middle = nil
+	})
 }
 
 // With allows the caller to functionally configure the route by providing
@@ -100,13 +132,14 @@ func (r *Route) With(opts ...RouteOption) *Route {
 // Use applies middleware to a route. Route-level middleware is applied in the
 // order it is declared AFTER router-level middleware.
 func (r *Route) Use(m ...Middle) *Route {
-	for _, e := range m {
-		if e != nil {
-			r.handler = e.Wrap(r.handler)
-		} else {
-			slog.With("route", r.Describe(false)).Warn("Ignoring nil middleware added to route")
-		}
-	}
+	// for _, e := range m {
+	// 	if e != nil {
+	// 		r.handler = e.Wrap(r.handler)
+	// 	} else {
+	// 		slog.With("route", r.Describe(false)).Warn("Ignoring nil middleware added to route")
+	// 	}
+	// }
+	r.middle = append(r.middle, m...)
 	return r
 }
 
@@ -350,19 +383,19 @@ func (r *router) Add(p string, f Handler) *Route {
 }
 
 // Find a route for the request, if we have one
-func (r router) Find(req *Request) (*Route, *Match, error) {
+func (r *router) Find(req *Request) (*Route, *Match, error) {
 	state := &matchState{}
 	for _, e := range r.routes {
 		match := e.Matches(req, state)
 		if match != nil {
-			return e, match, nil
+			return e.init(r.middle), match, nil
 		}
 	}
 	return nil, nil, nil
 }
 
 // Handle the request
-func (r router) Handle(req *Request) (*Response, error) {
+func (r *router) Handle(req *Request) (*Response, error) {
 	route, match, err := r.Find(req)
 	if err != nil {
 		return NewResponse(http.StatusInternalServerError).SetString("text/plain", fmt.Sprintf("Could not find route: %v", err))
