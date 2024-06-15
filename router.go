@@ -97,18 +97,24 @@ type Route struct {
 //
 // The initializaiton must be initiated by the router, since it manages the
 // router-level middleware that must be included.
+//
+// The base handler is wrapped in middleware in reverse-definition order. This
+// allows middleware to be defined naturally, from left to right, in the order
+// that it is expected to be invoked.
 func (r *Route) init(m []Middle) *Route {
 	r.once.Do(func() {
-		// wrap in route-level middleware first
-		for _, e := range r.middle {
+		// wrap in route-level middleware first, inside-out
+		for i := len(r.middle) - 1; i >= 0; i-- {
+			e := r.middle[i]
 			if e != nil {
 				r.handler = e.Wrap(r.handler)
 			} else {
 				slog.With("route", r.Describe(false)).Warn("Ignoring nil middleware added to route")
 			}
 		}
-		// wrap in router-level middleware second
-		for _, e := range m {
+		// wrap in router-level middleware second, inside-out
+		for i := len(m) - 1; i >= 0; i-- {
+			e := m[i]
 			if e != nil {
 				r.handler = e.Wrap(r.handler)
 			} else {
