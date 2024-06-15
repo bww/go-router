@@ -118,6 +118,7 @@ func (r *Route) init(m []Middle) *Route {
 		// clear our router-level middleware after it's been added
 		r.middle = nil
 	})
+	return r
 }
 
 // With allows the caller to functionally configure the route by providing
@@ -130,7 +131,12 @@ func (r *Route) With(opts ...RouteOption) *Route {
 }
 
 // Use applies middleware to a route. Route-level middleware is applied in the
-// order it is declared AFTER router-level middleware.
+// order it is declared BEFORE router-level middleware, that is, nested more
+// deeply.
+//
+// In order to accomplish this, resolution of middleware is deferred until the
+// first time a route is matched via Router.Find() (or, until init() is
+// explicitly called on a route).
 func (r *Route) Use(m ...Middle) *Route {
 	// for _, e := range m {
 	// 	if e != nil {
@@ -352,10 +358,10 @@ func (r *router) Subrouter(p string) Router {
 	return &subrouter{r, p}
 }
 
-// Add middleware which wraps every route that is added AFTER the middeware is
+// Add middleware which wraps every route that is added after the middeware is
 // defined. Routes added before a middleware will not be affected. Router-
-// level middleware is always applied BEFORE any route-level middleware is
-// applied.
+// level middleware is always applied AFTER any route-level middleware is
+// applied (that is, the router middlware wraps the route middleware).
 //
 // Routes are wrapped by middleware in the order the middleware is added to the
 // router via this method.
