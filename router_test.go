@@ -110,10 +110,10 @@ func TestRoutes(t *testing.T) {
 	r.Add("/a", funcB).Methods("PUT")
 	r.Add("/a", funcC)
 
-	r.Add("/b", funcF).Match(func(req *Request, route Route) bool {
+	r.Add("/b", funcF).Match(func(req *Request, route *Route) bool {
 		return req.Header.Get("Check-Header") == "F"
 	})
-	r.Add("/b", funcG).Match(func(req *Request, route Route) bool {
+	r.Add("/b", funcG).Match(func(req *Request, route *Route) bool {
 		return req.Header.Get("Check-Header") == "G"
 	})
 	r.Add("/b", funcD)

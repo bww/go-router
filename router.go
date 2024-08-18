@@ -69,7 +69,7 @@ type matchState struct {
 }
 
 // Candidate route matcher
-type Matcher func(*Request, Route) bool
+type Matcher func(*Request, *Route) bool
 
 // A matched route
 type Match struct {
@@ -224,7 +224,7 @@ func (r *Route) Attrs(attrs map[string]interface{}) *Route {
 
 // Matches the provided request or not; returns the details of
 // the match if successful, otherwise nil.
-func (r Route) Matches(req *Request, state *matchState) *Match {
+func (r *Route) Matches(req *Request, state *matchState) *Match {
 	if r.methods != nil { // if no methods specified, all methods match
 		if _, ok := r.methods[strings.ToLower(req.Method)]; !ok {
 			return nil
