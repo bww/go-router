@@ -325,10 +325,8 @@ func (r *Route) Describe(verbose bool) string {
 		b.WriteString(r.params.Encode())
 	}
 	if verbose {
-		p := reflect.ValueOf(r.handler).Pointer()
-		f := runtime.FuncForPC(p)
-		file, line := f.FileLine(p)
-		b.WriteString(fmt.Sprintf(" (%s @ %s:%d)", f.Name(), file, line))
+		name, file, line := funcInfo(r.handler)
+		b.WriteString(fmt.Sprintf(" (%s @ %s:%d)", name, file, line))
 	}
 	return b.String()
 }
@@ -383,9 +381,6 @@ func (r *router) Use(m Middle) {
 // middleware is applied to the route, this handler is invoked at the end of
 // the chain (or, more accurately, the most deeply nested element).
 func (r *router) Add(p string, f Handler) *Route {
-	for _, e := range r.middle {
-		f = e.Wrap(f)
-	}
 	v := &Route{
 		handler: f,
 		paths:   []path.Path{path.Parse(p)},
@@ -481,4 +476,11 @@ func entryList(m map[string]struct{}) string {
 		sort.Strings(n)
 		return "{" + strings.Join(n, ", ") + "}"
 	}
+}
+
+func funcInfo(v any) (string, string, int) {
+	p := reflect.ValueOf(v).Pointer()
+	f := runtime.FuncForPC(p)
+	file, line := f.FileLine(p)
+	return f.Name(), file, line
 }
