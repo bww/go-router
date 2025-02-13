@@ -79,6 +79,7 @@ func (t *Tree[T]) Find(s string) (T, Vars, bool) {
 
 func (t *Tree[T]) find(s string, vars Vars) (T, Vars, bool) {
 	c, r := splitPath(s, t.separator(), false)
+	var zero T
 
 	// search for a match in this node
 	for _, e := range t.n {
@@ -111,7 +112,7 @@ func (t *Tree[T]) find(s string, vars Vars) (T, Vars, bool) {
 	}
 
 	// not found
-	return nil, nil, false
+	return zero, nil, false
 }
 
 func (t *Tree[T]) Iter(f func(string, T) bool) {
