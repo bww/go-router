@@ -31,7 +31,7 @@ func TestTree(t *testing.T) {
 		{"/a/b/c/d/e/f/g", ErrCollision},
 	}
 
-	tree := &Tree{}
+	tree := &Tree[string]{}
 	for _, e := range paths {
 		err := tree.Add(e.Path, e.Path)
 		assert.Equal(t, e.Error, err)
@@ -86,14 +86,14 @@ func TestTree(t *testing.T) {
 }
 
 func TestTreeIter(t *testing.T) {
-	tree := &Tree{}
+	tree := &Tree[string]{}
 	tree.Add("/a", "/a")
 	tree.Add("/b", "/b")
 	tree.Add("/a/b", "/a/b")
 	tree.Add("/a/b/c", "/a/b/c")
 
 	var s string
-	tree.Iter(func(p string, v interface{}) bool {
+	tree.Iter(func(p string, v string) bool {
 		s += p + "\n"
 		return true
 	})
@@ -102,14 +102,14 @@ func TestTreeIter(t *testing.T) {
 }
 
 func TestTreeSep(t *testing.T) {
-	tree := NewTree(':')
+	tree := NewTree[string](':')
 	tree.Add("a", "a")
 	tree.Add("b", "b")
 	tree.Add("a:b", "a:b")
 	tree.Add("a:b:c", "a:b:c")
 
 	var s string
-	tree.Iter(func(p string, v interface{}) bool {
+	tree.Iter(func(p string, v string) bool {
 		s += p + "\n"
 		return true
 	})
@@ -132,7 +132,7 @@ func BenchmarkFindRoutes(b *testing.B) {
 		"/a/b/c/d/e/f/g",
 	}
 
-	tree := &Tree{}
+	tree := &Tree[string]{}
 	for _, e := range paths {
 		tree.Add(e, e)
 	}
