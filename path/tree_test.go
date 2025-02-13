@@ -61,10 +61,10 @@ func TestTree(t *testing.T) {
 			"/a/Y/c", true, "/a/{var}/c", Vars{"var": "Y"},
 		},
 		{
-			"/a/Y/d", false, nil, nil,
+			"/a/Y/d", false, "", nil,
 		},
 		{
-			"/a/Y/X", false, nil, nil,
+			"/a/Y/X", false, "", nil,
 		},
 		{
 			"/a/Y/e", true, "/a/{var}/e", Vars{"var": "Y"},
@@ -73,7 +73,7 @@ func TestTree(t *testing.T) {
 			"/a/b/c/d", true, "/a/*/*/d", Vars{},
 		},
 		{
-			"/a/b/c/d/e/f", false, nil, nil,
+			"/a/b/c/d/e/f", false, "", nil,
 		},
 	}
 	for i, e := range tests {
