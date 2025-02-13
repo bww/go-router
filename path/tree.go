@@ -73,11 +73,11 @@ func (t *Tree[T]) add(p []component, v T) error {
 	return nil
 }
 
-func (t *Tree[T]) Find(s string) (interface{}, Vars, bool) {
+func (t *Tree[T]) Find(s string) (T, Vars, bool) {
 	return t.find(s, Vars{})
 }
 
-func (t *Tree[T]) find(s string, vars Vars) (interface{}, Vars, bool) {
+func (t *Tree[T]) find(s string, vars Vars) (T, Vars, bool) {
 	c, r := splitPath(s, t.separator(), false)
 
 	// search for a match in this node
