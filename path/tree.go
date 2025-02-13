@@ -7,21 +7,22 @@ import (
 
 var ErrCollision = errors.New("Path collision")
 
-type node[T comparable] struct {
+type node[T any] struct {
 	cmp   component
 	value T
+	isset bool
 	sub   *Tree[T]
 }
 
 // A path prefix tree
-type Tree[T comparable] struct {
+type Tree[T any] struct {
 	n   []*node[T]
 	sep rune
 }
 
 // Create a tree with the specified separator. The zero
 // value of a tree uses the default separator: '/'.
-func NewTree[T comparable](sep rune) *Tree[T] {
+func NewTree[T any](sep rune) *Tree[T] {
 	return &Tree[T]{sep: sep}
 }
 
@@ -62,11 +63,11 @@ func (t *Tree[T]) add(p []component, v T) error {
 			}
 			return f.sub.add(p[1:], v)
 		} else {
-			var zero T
-			if f.value != zero {
+			if f.isset {
 				return ErrCollision
 			}
 			f.value = v
+			f.isset = true
 		}
 	}
 	return nil
@@ -91,8 +92,7 @@ func (t *Tree[T]) find(s string, vars Vars) (interface{}, Vars, bool) {
 				}
 			} else {
 				if r == "" {
-					var zero T
-					if e.value != zero {
+					if e.isset {
 						if v != "" {
 							vars[v] = c
 						}
@@ -121,9 +121,8 @@ func (t *Tree[T]) Iter(f func(string, T) bool) {
 func (t *Tree[T]) iter(c []component, f func(p string, v T) bool) bool {
 	for _, e := range t.n {
 		d := append(c, e.cmp)
-		var zero T
-		if v := e.value; v != zero {
-			if !f(joinCmp(d, t.separator()), v) {
+		if e.isset {
+			if !f(joinCmp(d, t.separator()), e.value) {
 				return false
 			}
 		}
