@@ -7,25 +7,26 @@ import (
 
 var ErrCollision = errors.New("Path collision")
 
-type node struct {
+type node[T any] struct {
 	cmp   component
-	value interface{}
-	sub   *Tree
+	value T
+	isset bool
+	sub   *Tree[T]
 }
 
 // A path prefix tree
-type Tree struct {
-	n   []*node
+type Tree[T any] struct {
+	n   []*node[T]
 	sep rune
 }
 
 // Create a tree with the specified separator. The zero
 // value of a tree uses the default separator: '/'.
-func NewTree(sep rune) *Tree {
-	return &Tree{sep: sep}
+func NewTree[T any](sep rune) *Tree[T] {
+	return &Tree[T]{sep: sep}
 }
 
-func (t *Tree) separator() rune {
+func (t *Tree[T]) separator() rune {
 	if t.sep == 0 {
 		return '/'
 	} else {
@@ -33,13 +34,13 @@ func (t *Tree) separator() rune {
 	}
 }
 
-func (t *Tree) Add(p string, v interface{}) error {
+func (t *Tree[T]) Add(p string, v T) error {
 	return t.add(ParseSeparator(p, t.separator()).cmp, v)
 }
 
-func (t *Tree) add(p []component, v interface{}) error {
+func (t *Tree[T]) add(p []component, v T) error {
 	if l := len(p); l > 0 {
-		var f *node
+		var f *node[T]
 
 		// attempt to find the first component
 		for _, e := range t.n {
@@ -51,32 +52,34 @@ func (t *Tree) add(p []component, v interface{}) error {
 
 		// create the node if we didn't find it
 		if f == nil {
-			f = &node{cmp: p[0]}
+			f = &node[T]{cmp: p[0]}
 			t.n = append(t.n, f)
 		}
 
 		// recurse to it with the remaining components or finalize
 		if l > 1 {
 			if f.sub == nil {
-				f.sub = &Tree{sep: t.sep}
+				f.sub = &Tree[T]{sep: t.sep}
 			}
 			return f.sub.add(p[1:], v)
 		} else {
-			if f.value != nil {
+			if f.isset {
 				return ErrCollision
 			}
 			f.value = v
+			f.isset = true
 		}
 	}
 	return nil
 }
 
-func (t *Tree) Find(s string) (interface{}, Vars, bool) {
+func (t *Tree[T]) Find(s string) (T, Vars, bool) {
 	return t.find(s, Vars{})
 }
 
-func (t *Tree) find(s string, vars Vars) (interface{}, Vars, bool) {
+func (t *Tree[T]) find(s string, vars Vars) (T, Vars, bool) {
 	c, r := splitPath(s, t.separator(), false)
+	var zero T
 
 	// search for a match in this node
 	for _, e := range t.n {
@@ -90,7 +93,7 @@ func (t *Tree) find(s string, vars Vars) (interface{}, Vars, bool) {
 				}
 			} else {
 				if r == "" {
-					if e.value != nil {
+					if e.isset {
 						if v != "" {
 							vars[v] = c
 						}
@@ -109,18 +112,18 @@ func (t *Tree) find(s string, vars Vars) (interface{}, Vars, bool) {
 	}
 
 	// not found
-	return nil, nil, false
+	return zero, nil, false
 }
 
-func (t *Tree) Iter(f func(string, interface{}) bool) {
+func (t *Tree[T]) Iter(f func(string, T) bool) {
 	t.iter([]component{}, f)
 }
 
-func (t *Tree) iter(c []component, f func(p string, v interface{}) bool) bool {
+func (t *Tree[T]) iter(c []component, f func(p string, v T) bool) bool {
 	for _, e := range t.n {
 		d := append(c, e.cmp)
-		if v := e.value; v != nil {
-			if !f(joinCmp(d, t.separator()), v) {
+		if e.isset {
+			if !f(joinCmp(d, t.separator()), e.value) {
 				return false
 			}
 		}
@@ -133,11 +136,11 @@ func (t *Tree) iter(c []component, f func(p string, v interface{}) bool) bool {
 	return true
 }
 
-func (t *Tree) Describe() string {
+func (t *Tree[T]) Describe() string {
 	return t.describe(&strings.Builder{}, 0).String()
 }
 
-func (t *Tree) describe(b *strings.Builder, d int) *strings.Builder {
+func (t *Tree[T]) describe(b *strings.Builder, d int) *strings.Builder {
 	for _, e := range t.n {
 		b.WriteString(strings.Repeat("  ", d))
 		b.WriteString("- ")
