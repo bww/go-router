@@ -303,7 +303,7 @@ func (r *Route) String() string {
 // Describe this route
 func (r *Route) Describe(verbose bool) string {
 	b := strings.Builder{}
-	b.WriteString(entryList(r.methods))
+	b.WriteString(methodList(r.methods))
 	b.WriteString(" ")
 	switch len(r.paths) {
 	case 0:
@@ -460,14 +460,14 @@ func (r subrouter) Handle(req *Request) (*Response, error) {
 	return r.parent.Handle(req)
 }
 
-// List of set entries
-func entryList(m map[string]struct{}) string {
+// List of set methods
+func methodList(m map[string]struct{}) string {
 	if len(m) == 0 {
 		return "*"
 	}
 	n := make([]string, 0, len(m))
 	for k, _ := range m {
-		n = append(n, k)
+		n = append(n, strings.ToUpper(k))
 	}
 	switch len(n) {
 	case 1:
