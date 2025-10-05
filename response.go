@@ -9,9 +9,10 @@ import (
 )
 
 type Response struct {
-	Status int
-	Header http.Header
-	Entity io.ReadCloser
+	Status    int
+	Header    http.Header
+	Entity    io.ReadCloser
+	Streaming bool
 }
 
 func NewResponse(status int) *Response {
@@ -23,6 +24,11 @@ func NewResponse(status int) *Response {
 
 func (r *Response) SetHeader(k, v string) *Response {
 	r.Header.Set(k, v)
+	return r
+}
+
+func (r *Response) SetStreaming(s bool) *Response {
+	r.Streaming = s
 	return r
 }
 
